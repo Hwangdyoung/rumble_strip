@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Risk scoring lives only in src/lib/risk.ts (RISK_CONFIG holds all thresholds); scores are computed client-side from play_logs so tuning needs no data migration.
+- Signed-in pages live under src/routes/_authenticated/ (client-only gate, redirects to /auth); data is read with the browser client under staff-only RLS.
