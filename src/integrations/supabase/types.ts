@@ -14,7 +14,199 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      actions: {
+        Row: {
+          action_type: string
+          alert_id: string | null
+          created_at: string
+          id: string
+          memo: string
+          patient_id: string
+          staff_id: string
+        }
+        Insert: {
+          action_type: string
+          alert_id?: string | null
+          created_at?: string
+          id?: string
+          memo?: string
+          patient_id: string
+          staff_id?: string
+        }
+        Update: {
+          action_type?: string
+          alert_id?: string | null
+          created_at?: string
+          id?: string
+          memo?: string
+          patient_id?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "actions_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "actions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alerts: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          patient_id: string
+          risk_score_id: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          patient_id: string
+          risk_score_id?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          patient_id?: string
+          risk_score_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alerts_risk_score_id_fkey"
+            columns: ["risk_score_id"]
+            isOneToOne: false
+            referencedRelation: "risk_scores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          age: number
+          created_at: string
+          id: string
+          name: string
+          prescription_start_date: string
+          prescription_weeks: number
+          session_target_minutes: number
+          weekly_target_days: number
+        }
+        Insert: {
+          age: number
+          created_at?: string
+          id?: string
+          name: string
+          prescription_start_date: string
+          prescription_weeks?: number
+          session_target_minutes?: number
+          weekly_target_days?: number
+        }
+        Update: {
+          age?: number
+          created_at?: string
+          id?: string
+          name?: string
+          prescription_start_date?: string
+          prescription_weeks?: number
+          session_target_minutes?: number
+          weekly_target_days?: number
+        }
+        Relationships: []
+      }
+      play_logs: {
+        Row: {
+          ended_early: boolean
+          id: string
+          patient_id: string
+          play_minutes: number
+          session_end: string
+          session_start: string
+          tasks_completed: number
+        }
+        Insert: {
+          ended_early?: boolean
+          id?: string
+          patient_id: string
+          play_minutes: number
+          session_end: string
+          session_start: string
+          tasks_completed?: number
+        }
+        Update: {
+          ended_early?: boolean
+          id?: string
+          patient_id?: string
+          play_minutes?: number
+          session_end?: string
+          session_start?: string
+          tasks_completed?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "play_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      risk_scores: {
+        Row: {
+          calculated_at: string
+          id: string
+          level: string
+          patient_id: string
+          reasons: Json
+          score: number
+        }
+        Insert: {
+          calculated_at?: string
+          id?: string
+          level: string
+          patient_id: string
+          reasons?: Json
+          score: number
+        }
+        Update: {
+          calculated_at?: string
+          id?: string
+          level?: string
+          patient_id?: string
+          reasons?: Json
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_scores_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
