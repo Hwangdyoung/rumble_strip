@@ -68,7 +68,7 @@ export function toDateKey(d: Date): string {
 
 function parseDateKey(key: string): Date {
   const [y, m, d] = key.split("-").map(Number);
-  return new Date(y, m - 1, d);
+  return new Date(y!, m! - 1, d!);
 }
 
 function dayIndex(start: Date, d: Date): number {
@@ -92,8 +92,8 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
   for (const log of logs) {
     const idx = dayIndex(start, new Date(log.session_start));
     if (idx < 0 || idx > today) continue;
-    minutesByDay[idx] += log.play_minutes;
-    sessionsByDay[idx] += 1;
+    minutesByDay[idx] = (minutesByDay[idx] ?? 0) + log.play_minutes;
+    sessionsByDay[idx] = (sessionsByDay[idx] ?? 0) + 1;
     lastPlay = Math.max(lastPlay, idx);
   }
   const played = minutesByDay.map((m) => m > 0);
@@ -123,8 +123,8 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
     let m = 0;
     let s = 0;
     for (let i = Math.max(0, from); i <= to; i++) {
-      m += minutesByDay[i];
-      s += sessionsByDay[i];
+      m += minutesByDay[i] ?? 0;
+      s += sessionsByDay[i] ?? 0;
     }
     return s > 0 ? m / s : null;
   };
@@ -140,7 +140,7 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
   }
   let weeklyDeclineStreak = 0;
   for (let i = weekTotals.length - 1; i > 0; i--) {
-    if (weekTotals[i] < weekTotals[i - 1]) weeklyDeclineStreak++;
+    if ((weekTotals[i] ?? 0) < (weekTotals[i - 1] ?? 0)) weeklyDeclineStreak++;
     else break;
   }
 
