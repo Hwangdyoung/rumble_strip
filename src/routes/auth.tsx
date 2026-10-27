@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/AppHeader";
+import { Disclaimer } from "@/components/Disclaimer";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -90,6 +91,7 @@ function AuthPage() {
         <p className="mt-4 text-center text-sm text-muted-foreground">
           AI는 진단·처방을 바꾸지 않으며, 연락 우선순위 판단을 돕는 보조 도구입니다.
         </p>
+        <Disclaimer />
       </div>
     </div>
   );
