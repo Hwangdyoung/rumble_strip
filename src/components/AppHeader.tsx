@@ -4,6 +4,7 @@ import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
+import { AlertsBell } from "@/components/AlertsBell";
 
 export function Logo() {
   return (
@@ -42,12 +43,15 @@ export function AppHeader() {
         <Link to="/dashboard">
           <Logo />
         </Link>
-        <div className="flex items-center gap-3">
-          {email && <span className="hidden text-sm text-muted-foreground sm:inline">{email}</span>}
+        <nav className="flex items-center gap-2 sm:gap-3">
+          <Link to="/dashboard" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>대시보드</Link>
+          <Link to="/simulator" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>시뮬레이터</Link>
+          <AlertsBell />
+          {email && <span className="hidden text-sm text-muted-foreground lg:inline">{email}</span>}
           <Button variant="outline" size="sm" onClick={signOut}>
-            <LogOut /> 로그아웃
+            <LogOut /> <span className="hidden sm:inline">로그아웃</span>
           </Button>
-        </div>
+        </nav>
       </div>
     </header>
   );

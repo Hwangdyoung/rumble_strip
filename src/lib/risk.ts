@@ -82,7 +82,7 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
   const cfg = RISK_CONFIG;
   const start = parseDateKey(patient.prescription_start_date);
   const totalDays = patient.prescription_weeks * 7;
-  const today = clamp(dayIndex(start, asOf), 0, totalDays - 1);
+  const today = Math.max(0, dayIndex(start, asOf));
   const elapsedDays = today + 1;
 
   // 날짜별 플레이 분
@@ -92,6 +92,7 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
   for (const log of logs) {
     const idx = dayIndex(start, new Date(log.session_start));
     if (idx < 0 || idx > today) continue;
+    if (log.play_minutes <= 0) continue; // 0분 기록 = 미접속 표시용
     minutesByDay[idx] = (minutesByDay[idx] ?? 0) + log.play_minutes;
     sessionsByDay[idx] = (sessionsByDay[idx] ?? 0) + 1;
     lastPlay = Math.max(lastPlay, idx);
@@ -192,7 +193,7 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
 /** 날짜별 위험 점수 추이 */
 export function riskHistory(patient: PatientLike, logs: PlayLogLike[], asOf: Date = new Date()) {
   const start = parseDateKey(patient.prescription_start_date);
-  const last = clamp(dayIndex(start, asOf), 0, patient.prescription_weeks * 7 - 1);
+  const last = Math.max(0, dayIndex(start, asOf));
   const out: { date: string; score: number; level: RiskLevel }[] = [];
   for (let i = 0; i <= last; i++) {
     const d = new Date(start.getTime() + i * DAY);
@@ -205,13 +206,15 @@ export function riskHistory(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
 /** 주별 접속 일수와 평균 세션 시간 */
 export function weeklySummary(patient: PatientLike, logs: PlayLogLike[]) {
   const start = parseDateKey(patient.prescription_start_date);
-  return Array.from({ length: patient.prescription_weeks }, (_, w) => {
+  const maxIdx = Math.max(0, ...logs.map((l) => dayIndex(start, new Date(l.session_start))));
+  const weeks = Math.max(patient.prescription_weeks, Math.floor(maxIdx / 7) + 1);
+  return Array.from({ length: weeks }, (_, w) => {
     const days = new Set<number>();
     let minutes = 0;
     let sessions = 0;
     for (const l of logs) {
       const idx = dayIndex(start, new Date(l.session_start));
-      if (Math.floor(idx / 7) !== w || idx < 0) continue;
+      if (Math.floor(idx / 7) !== w || idx < 0 || l.play_minutes <= 0) continue;
       days.add(idx);
       minutes += l.play_minutes;
       sessions++;
@@ -222,4 +225,47 @@ export function weeklySummary(patient: PatientLike, logs: PlayLogLike[]) {
       avgMinutes: sessions ? Math.round(minutes / sessions) : 0,
     };
   });
+}
+
+/** 평가 기준일: 오늘과 마지막 기록일 중 늦은 날 (시뮬레이터로 미래 날짜를 넣은 경우 대비) */
+export function asOfFor(logs: PlayLogLike[], now: Date = new Date()): Date {
+  let t = now.getTime();
+  for (const l of logs) t = Math.max(t, new Date(l.session_start).getTime());
+  return new Date(t);
+}
+
+/** 알림 기준: 점수 상승 폭 */
+export const ALERT_SCORE_JUMP = 15;
+
+/** 이전 → 이후 결과로 알림을 만들지 판단합니다. */
+export function shouldAlert(before: Pick<RiskResult, "score" | "level">, after: Pick<RiskResult, "score" | "level">): boolean {
+  const high = (l: RiskLevel) => l === "이탈 위험" || l === "치료이탈";
+  if (high(after.level) && !high(before.level)) return true;
+  if (after.level === "치료이탈" && before.level !== "치료이탈") return true;
+  return after.score - before.score >= ALERT_SCORE_JUMP;
+}
+
+export function alertMessage(name: string, before: RiskResult, after: RiskResult): string {
+  const head =
+    after.level !== before.level
+      ? `${name}님이 '${before.level}' → '${after.level}' 단계로 바뀌었습니다`
+      : `${name}님의 위험 점수가 ${before.score} → ${after.score}점으로 올랐습니다`;
+  return `${head}. 이유: ${after.reasons.slice(0, 3).join(", ")}`;
+}
+
+/** 규칙 기반 경과 요약 문장 */
+export function progressSummary(r: RiskResult): string {
+  const m = r.metrics;
+  const parts: string[] = [`처방 대비 ${Math.round(Math.min(m.adherence, 1) * 100)}% 수행`];
+  if (m.currentGap >= 2) parts.push(`${m.currentGap}일 연속 미접속`);
+  else parts.push(`최근 7일 중 ${m.recentDays}일 접속`);
+  if (m.sessionChange <= -0.1) parts.push(`세션 시간 ${Math.round(-m.sessionChange * 100)}% 감소`);
+  else if (m.sessionChange >= 0.1) parts.push(`세션 시간 ${Math.round(m.sessionChange * 100)}% 증가`);
+  const advice: Record<RiskLevel, string> = {
+    정상: "처방대로 잘 진행 중이며 현재 관찰을 유지하면 됩니다.",
+    주의: "사용량이 줄고 있어 가벼운 격려 연락을 고려해 보세요.",
+    "이탈 위험": "동기 저하 가능성이 있어 상담을 권장합니다.",
+    치료이탈: "치료가 중단된 상태로 보여 재참여를 위한 연락이 필요합니다.",
+  };
+  return `${parts.join(", ")}. ${advice[r.level]}`;
 }

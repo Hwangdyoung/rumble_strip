@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/AppHeader";
+import { Disclaimer } from "@/components/Disclaimer";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -34,6 +35,7 @@ function Index() {
           <Button asChild size="lg" className="h-12 px-6 text-base"><Link to="/auth">대시보드 시작하기</Link></Button>
         </div>
       </main>
+      <Disclaimer />
     </div>
   );
 }

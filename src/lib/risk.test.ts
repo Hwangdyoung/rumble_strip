@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeRisk, RISK_CONFIG } from "./risk";
+import { computeRisk, RISK_CONFIG, shouldAlert } from "./risk";
 
 const patient = {
   prescription_start_date: "2026-01-01",
@@ -53,5 +53,29 @@ describe("risk levels", () => {
     const [lo, hi] = RISK_CONFIG.bands[r.level];
     expect(r.score).toBeGreaterThanOrEqual(lo);
     expect(r.score).toBeLessThanOrEqual(hi);
+  });
+});
+
+describe("alerts", () => {
+  it("이탈 위험으로 올라가면 알림", () => {
+    expect(shouldAlert({ score: 40, level: "주의" }, { score: 56, level: "이탈 위험" })).toBe(true);
+  });
+  it("같은 단계에서 15점 이상 오르면 알림", () => {
+    expect(shouldAlert({ score: 30, level: "주의" }, { score: 45, level: "주의" })).toBe(true);
+  });
+  it("14점 상승은 알림 없음", () => {
+    expect(shouldAlert({ score: 30, level: "주의" }, { score: 44, level: "주의" })).toBe(false);
+  });
+  it("이미 이탈 위험이면 소폭 상승에 알림 없음", () => {
+    expect(shouldAlert({ score: 60, level: "이탈 위험" }, { score: 65, level: "이탈 위험" })).toBe(false);
+  });
+});
+
+describe("미접속 처리", () => {
+  it("0분 기록은 접속으로 세지 않는다", () => {
+    const logs = Array.from({ length: 21 }, (_, d) => d).filter((d) => d % 7 < 5).map((d) => log(d));
+    const r = computeRisk(patient, [...logs, log(24, 0)], new Date(2026, 0, 25, 23));
+    expect(r.metrics.currentGap).toBe(6);
+    expect(r.level).toBe("이탈 위험");
   });
 });
