@@ -38,8 +38,8 @@ describe("risk levels", () => {
 
   it("3일 연속 미접속은 이탈 위험", () => {
     const logs = Array.from({ length: 18 }, (_, d) => d).filter((d) => d % 7 < 5).map((d) => log(d));
-    // days 18,19,20 none; days 15,16 played (15%7=1, 16%7=2)
-    expect(computeRisk(patient, logs, asOf).metrics.currentGap).toBe(4);
+    // 마지막 접속 17일차 → 18,19,20일차 미접속
+    expect(computeRisk(patient, logs, asOf).metrics.currentGap).toBe(3);
     expect(computeRisk(patient, logs, asOf).level).toBe("이탈 위험");
   });
 
