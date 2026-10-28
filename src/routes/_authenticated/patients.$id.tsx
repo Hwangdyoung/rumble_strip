@@ -6,7 +6,10 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, ReferenceLine, Responsiv
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { patientDetailQuery } from "@/lib/queries";
-import { computeRisk, riskHistory, weeklySummary, RISK_CONFIG } from "@/lib/risk";
+import { asOfFor, computeRisk, progressSummary, riskHistory, weeklySummary, RISK_CONFIG, toDateKey } from "@/lib/risk";
+import { setAlertStatus, type AlertStatus } from "@/lib/queries";
+import { alertStatusStyle } from "@/components/AlertsBell";
+import { Sparkles } from "lucide-react";
 import { LevelBadge } from "@/components/LevelBadge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -45,8 +48,10 @@ function PatientPage() {
   const { id } = Route.useParams();
   const { data } = useSuspenseQuery(patientDetailQuery(id));
   const patient = data.patient!;
-  const risk = computeRisk(patient, data.logs);
-  const history = riskHistory(patient, data.logs);
+  const asOf = asOfFor(data.logs);
+  const risk = computeRisk(patient, data.logs, asOf);
+  const history = riskHistory(patient, data.logs, asOf);
+  const actionDates = [...new Set(data.actions.map((a) => toDateKey(new Date(a.created_at)).slice(5)))];
   const weeks = weeklySummary(patient, data.logs);
 
   return (
@@ -75,6 +80,12 @@ function PatientPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
+        <section className="rounded-2xl border border-teal bg-accent p-5 shadow-card lg:col-span-3">
+          <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-accent-foreground"><Sparkles className="size-5" /> AI 경과 요약</h2>
+          <p className="text-lg">{progressSummary(risk)}</p>
+          <p className="mt-2 text-xs text-muted-foreground">진단이나 처방 변경이 아닌 참고용 보조 정보입니다.</p>
+        </section>
+
         <Card title="위험 이유" className="lg:col-span-1">
           <ul className="space-y-2">
             {risk.reasons.map((r) => (
@@ -100,6 +111,9 @@ function PatientPage() {
                 <ReferenceLine y={RISK_CONFIG.bands["주의"][0]} stroke="var(--level-caution)" strokeDasharray="4 4" />
                 <ReferenceLine y={RISK_CONFIG.bands["이탈 위험"][0]} stroke="var(--level-risk)" strokeDasharray="4 4" />
                 <ReferenceLine y={RISK_CONFIG.bands["치료이탈"][0]} stroke="var(--level-dropout)" strokeDasharray="4 4" />
+                {actionDates.map((d) => (
+                  <ReferenceLine key={d} x={d} stroke="var(--teal)" strokeWidth={2} label={{ value: "조치", position: "insideTopRight", fill: "var(--teal)", fontSize: 12 }} />
+                ))}
                 <Tooltip formatter={(v: number, _n, item) => [`${v}점 (${item.payload.level})`, "위험 점수"]} />
                 <Area type="monotone" dataKey="score" stroke="var(--primary)" strokeWidth={2.5} fill="url(#riskFill)" />
               </AreaChart>
@@ -143,6 +157,16 @@ function PatientPage() {
         </div>
       </Card>
 
+      <Card title="알림">
+        {data.alerts.length === 0 ? (
+          <p className="text-muted-foreground">이 환자의 알림이 없습니다.</p>
+        ) : (
+          <ul className="divide-y">
+            {data.alerts.map((a) => <AlertRow key={a.id} alert={a} patientId={patient.id} />)}
+          </ul>
+        )}
+      </Card>
+
       <Card title="조치 기록">
         {data.actions.length === 0 ? (
           <p className="text-muted-foreground">아직 기록된 조치가 없습니다.</p>
@@ -170,11 +194,17 @@ function ActionDialog({ patientId }: { patientId: string }) {
   const mutation = useMutation({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("actions").insert({ patient_id: patientId, action_type: type, memo, staff_id: u.user!.id });
+      const { data: open } = await supabase.from("alerts").select("id").eq("patient_id", patientId).neq("status", "조치완료").order("created_at", { ascending: false });
+      const { error } = await supabase.from("actions").insert({ patient_id: patientId, action_type: type, memo, staff_id: u.user!.id, alert_id: open?.[0]?.id ?? null });
       if (error) throw error;
+      if (open?.length) {
+        const { error: ue } = await supabase.from("alerts").update({ status: "조치완료" }).in("id", open.map((a) => a.id));
+        if (ue) throw ue;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["patient", patientId] });
+      qc.invalidateQueries({ queryKey: ["alerts"] });
       toast.success("조치가 기록되었습니다.");
       setOpen(false);
       setMemo("");
@@ -220,5 +250,42 @@ function ActionDialog({ patientId }: { patientId: string }) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+const STATUSES: AlertStatus[] = ["미확인", "확인", "조치완료"];
+
+function AlertRow({ alert, patientId }: { alert: { id: string; message: string; status: string; created_at: string }; patientId: string }) {
+  const qc = useQueryClient();
+  const m = useMutation({
+    mutationFn: (s: AlertStatus) => setAlertStatus(alert.id, s),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["patient", patientId] });
+      qc.invalidateQueries({ queryKey: ["alerts"] });
+    },
+    onError: () => toast.error("상태를 바꾸지 못했습니다."),
+  });
+  return (
+    <li className="flex flex-col gap-3 py-3 md:flex-row md:items-center">
+      <div className="flex-1">
+        <p>{alert.message}</p>
+        <p className="text-sm text-muted-foreground">{new Date(alert.created_at).toLocaleString("ko-KR")}</p>
+      </div>
+      <div className="flex gap-1">
+        {STATUSES.map((s) => (
+          <button
+            key={s}
+            disabled={m.isPending}
+            onClick={() => m.mutate(s)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-sm font-medium",
+              alert.status === s ? cn(alertStatusStyle[s], "border-transparent") : "text-muted-foreground hover:bg-muted",
+            )}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </li>
   );
 }
