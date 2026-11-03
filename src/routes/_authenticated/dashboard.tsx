@@ -1,4 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { fallback, zodValidator } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
@@ -6,11 +8,16 @@ import { patientsOverviewQuery } from "@/lib/queries";
 import { RISK_LEVELS, type RiskLevel } from "@/lib/risk";
 import { LevelBadge, levelStyles } from "@/components/LevelBadge";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { PatientPanel } from "@/components/PatientPanel";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
+  validateSearch: zodValidator(z.object({ patient: fallback(z.string(), "").optional() })),
   head: () => ({
     meta: [
       { title: "대시보드 | 이탈방지턱" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { name: "description", content: "처방 환자별 이탈 위험 점수와 단계를 한눈에 확인합니다." },
       { property: "og:title", content: "대시보드 | 이탈방지턱" },
       { property: "og:description", content: "처방 환자별 이탈 위험 점수와 단계를 한눈에 확인합니다." },
@@ -27,6 +34,9 @@ function formatDate(key: string | null) {
 }
 
 function Dashboard() {
+  const { patient: patientId } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const selectPatient = (id?: string) => navigate({ search: (prev) => ({ ...prev, patient: id }), resetScroll: false });
   const { data: patients } = useSuspenseQuery(patientsOverviewQuery());
   const [filter, setFilter] = useState<RiskLevel | "전체">("전체");
   const counts = Object.fromEntries(RISK_LEVELS.map((l) => [l, patients.filter((p) => p.risk.level === l).length]));
@@ -88,10 +98,14 @@ function Dashboard() {
         <ul className="divide-y">
           {rows.map((p) => (
             <li key={p.id}>
-              <Link
-                to="/patients/$id"
-                params={{ id: p.id }}
-                className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-5 py-4 transition hover:bg-muted md:grid-cols-[1.2fr_0.8fr_1fr_0.9fr_2.4fr_auto]"
+              <Button
+                variant="ghost"
+                onClick={() => selectPatient(p.id)}
+                data-patient-id={p.id}
+                aria-label={`${p.name} 환자 상세 보기`}
+                aria-haspopup="dialog"
+                aria-expanded={patientId === p.id}
+                className={cn("grid h-auto w-full grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 whitespace-normal rounded-none px-5 py-4 text-left text-base font-normal transition hover:bg-muted md:grid-cols-[1.2fr_0.8fr_1fr_0.9fr_2.4fr_auto]", patientId === p.id && "bg-secondary ring-2 ring-inset ring-primary")}
               >
                 <div>
                   <div className="font-semibold">{p.name}</div>
@@ -109,11 +123,12 @@ function Dashboard() {
                   {p.risk.reasons.slice(0, 2).join(", ")}
                 </div>
                 <ChevronRight className="hidden size-5 text-muted-foreground md:block" />
-              </Link>
+              </Button>
             </li>
           ))}
         </ul>
       </section>
+      <PatientPanel patientId={patientId} patientIds={rows.map((p) => p.id)} onSelect={selectPatient} />
     </div>
   );
 }

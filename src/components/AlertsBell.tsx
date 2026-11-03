@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { alertsQuery, setAlertStatus } from "@/lib/queries";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export const alertStatusStyle: Record<string, string> = {
   미확인: "bg-level-risk-soft text-level-risk",
@@ -20,24 +22,29 @@ export function AlertsBell() {
   const unread = alerts.filter((a) => a.status === "미확인").length;
 
   async function openAlert(a: (typeof alerts)[number]) {
-    if (a.status === "미확인") await setAlertStatus(a.id, "확인");
+    try {
+      if (a.status === "미확인") await setAlertStatus(a.id, "확인");
+    } catch {
+      toast.error("알림 상태를 바꾸지 못했습니다. 다시 시도해 주세요.");
+      return;
+    }
     qc.invalidateQueries({ queryKey: ["alerts"] });
     qc.invalidateQueries({ queryKey: ["patient", a.patient_id] });
     setOpen(false);
-    navigate({ to: "/patients/$id", params: { id: a.patient_id } });
+    navigate({ to: "/dashboard", search: { patient: a.patient_id }, resetScroll: false });
   }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button aria-label={`알림 ${unread}건`} className="relative grid size-10 place-items-center rounded-full border bg-card hover:bg-muted">
+        <Button variant="outline" size="icon" aria-label={`알림 ${unread}건`} className="relative grid size-10 place-items-center rounded-full bg-card hover:bg-muted">
           <Bell className="size-5" />
           {unread > 0 && (
             <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-level-risk px-1 text-xs font-bold text-primary-foreground">
               {unread}
             </span>
           )}
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(92vw,380px)] p-0">
         <div className="border-b px-4 py-3 font-bold">알림 <span className="text-sm font-medium text-muted-foreground">미확인 {unread}건</span></div>
@@ -45,14 +52,14 @@ export function AlertsBell() {
           {alerts.length === 0 && <li className="p-6 text-center text-sm text-muted-foreground">알림이 없습니다.</li>}
           {alerts.map((a) => (
             <li key={a.id}>
-              <button onClick={() => openAlert(a)} className={cn("w-full px-4 py-3 text-left hover:bg-muted", a.status === "미확인" && "bg-secondary")}>
+              <Button variant="ghost" onClick={() => openAlert(a)} className={cn("block h-auto w-full whitespace-normal rounded-none px-4 py-3 text-left font-normal hover:bg-muted", a.status === "미확인" && "bg-secondary")}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">{a.patients?.name}</span>
                   <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", alertStatusStyle[a.status])}>{a.status}</span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{a.message}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{new Date(a.created_at).toLocaleString("ko-KR")}</p>
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
