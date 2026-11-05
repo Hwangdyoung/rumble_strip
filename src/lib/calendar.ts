@@ -91,12 +91,13 @@ export function riskOnDay(patient: PatientLike, logs: PlayLogLike[], key: string
 
 /** 이번 주(월~오늘) 접속 일수와 주간 목표 */
 export function weekProgress(logs: PlayLogLike[], targetDays: number, now: Date = new Date()) {
-  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+  const mondayKey = toDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7)));
+  const nowKey = toDateKey(now);
   const days = new Set<string>();
   for (const l of logs) {
     if (l.play_minutes <= 0) continue;
-    const d = new Date(l.session_start);
-    if (d >= monday && d <= now) days.add(toDateKey(d));
+    const key = toDateKey(new Date(l.session_start));
+    if (key >= mondayKey && key <= nowKey) days.add(key);
   }
   return { days: days.size, target: targetDays };
 }
