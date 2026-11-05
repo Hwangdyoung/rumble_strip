@@ -22,7 +22,11 @@ describe("play calendar", () => {
     const byKey = new Map(cells.map((c) => [c!.key, c!]));
     expect(byKey.get("2026-10-04")!.inWindow).toBe(false); // 시작 전
     expect(byKey.get("2026-10-05")!.inWindow).toBe(true); // 시작일
-    expect(byKey.get("2026-11-01")!.inWindow).toBe(true); // 마지막 날
+    expect(byKey.get("2026-10-31")!.inWindow).toBe(true); // 기간 안
+    const nov = buildMonth(patient, [], new Set(), new Set(), 2026, 10, "2026-10-20").filter(Boolean);
+    const novByKey = new Map(nov.map((c) => [c!.key, c!]));
+    expect(novByKey.get("2026-11-01")!.inWindow).toBe(true); // 마지막 날
+    expect(novByKey.get("2026-11-02")!.inWindow).toBe(false); // 기간 종료 후
   });
 
   it("sums played minutes per day and flags missed in-window days", () => {
