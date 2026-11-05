@@ -140,13 +140,16 @@
   background-image: var(--gradient-brand);
 }
 
-.patient-panel[data-state="open"],
-.patient-panel[data-state="closed"] {
-  animation-duration: 250ms;
-  transition-duration: 250ms;
+.split-detail {
+  animation: split-slide-in 300ms ease-out;
 }
 
-.patient-panel-content {
+@keyframes split-slide-in {
+  from { transform: translateX(2rem); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.detail-fade {
   animation: patient-content-fade 160ms ease-out;
 }
 
@@ -156,7 +159,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .patient-panel[data-state], .patient-panel-content {
+  .split-detail, .detail-fade {
     animation: none;
     transition: none;
   }

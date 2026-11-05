@@ -11,6 +11,7 @@ import { setAlertStatus, type AlertStatus } from "@/lib/queries";
 import { alertStatusStyle } from "@/components/AlertsBell";
 import { Sparkles } from "lucide-react";
 import { LevelBadge } from "@/components/LevelBadge";
+import { PlayCalendar } from "@/components/PlayCalendar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -141,6 +142,10 @@ export function PatientDetail({ id, panel = false }: { id: string; panel?: boole
             </div>
           </div>
         </div>
+      </Card>
+
+      <Card title="플레이 캘린더">
+        <PlayCalendar patient={patient} logs={data.logs} actions={data.actions} alerts={data.alerts} />
       </Card>
 
       <Card title="알림">
