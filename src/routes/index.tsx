@@ -7,6 +7,8 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "이탈방지턱 — 디지털 치료제 이탈 위험 조기 알림" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { name: "description", content: "스타러커스 처방 환자의 플레이 기록으로 이탈 위험을 계산해 의료진에게 먼저 알려드립니다." },
       { property: "og:title", content: "이탈방지턱 — 디지털 치료제 이탈 위험 조기 알림" },
       { property: "og:description", content: "스타러커스 처방 환자의 플레이 기록으로 이탈 위험을 계산해 의료진에게 먼저 알려드립니다." },

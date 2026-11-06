@@ -11,6 +11,8 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "로그인 | 이탈방지턱" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { name: "description", content: "의료진 전용 이탈방지턱 로그인 및 회원가입" },
       { property: "og:title", content: "로그인 | 이탈방지턱" },
       { property: "og:description", content: "의료진 전용 이탈방지턱 로그인 및 회원가입" },

@@ -18,8 +18,8 @@ type Props = {
 export function PlayCalendar({ patient, logs, actions, alerts }: Props) {
   const todayKey = toDateKey(new Date());
   const startMonth = useMemo(() => {
-    const [y, m] = patient.prescription_start_date.split("-").map(Number);
-    return { year: y!, month: m! - 1 };
+    const [y = 1970, m = 1] = patient.prescription_start_date.split("-").map(Number);
+    return { year: y, month: m - 1 };
   }, [patient.prescription_start_date]);
   const [view, setView] = useState(startMonth);
   const [selected, setSelected] = useState<string | null>(null);
@@ -137,13 +137,13 @@ function DayCell({ cell, target, selected, onSelect }: { cell: CalendarDay; targ
   const missed = cell.inWindow && !played && !cell.isFuture;
   const intensity = playIntensity(cell.minutes, target);
   return (
-    <button
+    <Button variant="ghost"
       type="button"
       onClick={onSelect}
       aria-label={`${cell.key}${played ? ` ${cell.minutes}분 플레이` : missed ? " 미접속" : ""}`}
       aria-pressed={selected}
       className={cn(
-        "relative flex min-h-11 flex-col items-center justify-center rounded-lg border text-sm transition",
+        "relative flex h-auto min-h-11 min-w-0 flex-col items-center justify-center gap-0 rounded-lg border px-0 py-1 text-sm",
         cell.inWindow ? "border-input" : "border-transparent opacity-40",
         missed && "bg-muted",
         cell.isToday && "ring-2 ring-primary",
@@ -156,6 +156,6 @@ function DayCell({ cell, target, selected, onSelect }: { cell: CalendarDay; targ
       {missed && <span className="mt-1 size-1 rounded-full bg-muted-foreground" aria-hidden />}
       {cell.hasAction && <span className="absolute right-0 top-0 size-0 border-6 border-transparent border-t-teal border-r-teal" aria-label="조치 기록 있음" />}
       {cell.hasAlert && <span className="absolute bottom-0.5 right-0.5 size-1.5 rounded-full bg-level-risk" aria-label="알림 발생" />}
-    </button>
+    </Button>
   );
 }

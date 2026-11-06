@@ -16,6 +16,8 @@ export const Route = createFileRoute("/_authenticated/simulator")({
   head: () => ({
     meta: [
       { title: "플레이 시뮬레이터 | 이탈방지턱" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { name: "description", content: "가상 플레이 기록을 넣어 위험 점수 변화를 확인합니다." },
       { property: "og:title", content: "플레이 시뮬레이터 | 이탈방지턱" },
       { property: "og:description", content: "가상 플레이 기록을 넣어 위험 점수 변화를 확인합니다." },
