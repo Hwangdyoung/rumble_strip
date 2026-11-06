@@ -25,8 +25,8 @@ export interface CalendarDay {
 const DAY = 86_400_000;
 
 function parseKey(key: string): Date {
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(y!, m! - 1, d!);
+  const [y = 1970, m = 1, d = 1] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
 }
 
 /** 처방 종료일 (시작일 포함 weeks*7일째의 마지막 날) */
@@ -53,6 +53,7 @@ export function buildMonth(
 
   const byDay = new Map<string, { minutes: number; sessions: number; tasks: number; endedEarly: boolean }>();
   for (const l of logs) {
+    if (l.play_minutes <= 0) continue;
     const key = toDateKey(new Date(l.session_start));
     const cur = byDay.get(key) ?? { minutes: 0, sessions: 0, tasks: 0, endedEarly: false };
     cur.minutes += l.play_minutes;

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { patientsOverviewQuery } from "@/lib/queries";
 import { RISK_LEVELS, type RiskLevel } from "@/lib/risk";
@@ -38,57 +38,68 @@ function Dashboard() {
   const navigate = Route.useNavigate();
   const selectPatient = (id?: string) => navigate({ search: (prev) => ({ ...prev, patient: id }), resetScroll: false });
   const { data: patients } = useSuspenseQuery(patientsOverviewQuery());
+  const selectedId = patients.some((p) => p.id === patientId) ? patientId : undefined;
+  const [retainedId, setRetainedId] = useState(selectedId);
+  useEffect(() => {
+    if (selectedId) {
+      setRetainedId(selectedId);
+      return;
+    }
+    const timer = window.setTimeout(() => setRetainedId(undefined), 300);
+    return () => window.clearTimeout(timer);
+  }, [selectedId]);
+  const displayedId = selectedId ?? retainedId;
   const [filter, setFilter] = useState<RiskLevel | "전체">("전체");
   const counts = Object.fromEntries(RISK_LEVELS.map((l) => [l, patients.filter((p) => p.risk.level === l).length]));
   const rows = filter === "전체" ? patients : patients.filter((p) => p.risk.level === filter);
-  const split = Boolean(patientId);
+  const split = Boolean(selectedId);
 
   return (
-    <div className={cn("flex flex-col gap-6 md:flex-row md:items-start")}>
-      <div className={cn("min-w-0 flex-1 space-y-6 transition-all duration-300 motion-reduce:transition-none", split && "md:w-2/5 md:flex-none")}>
+    <div className={cn("dashboard-split", displayedId && "has-detail")} data-open={split}>
+      <div className="min-w-0 space-y-6">
         <div>
           <h1 className="text-2xl font-bold sm:text-3xl">환자 이탈 위험 현황</h1>
           <p className="mt-1 text-muted-foreground">위험 점수가 높은 환자부터 먼저 연락해 보세요.</p>
         </div>
 
         <section className={cn("grid grid-cols-2 gap-3", split ? "md:grid-cols-3" : "md:grid-cols-5")}>
-          <button
+          <Button variant="ghost"
             onClick={() => setFilter("전체")}
-            className={cn("rounded-2xl border bg-card p-4 text-left shadow-card transition", filter === "전체" && "ring-2 ring-primary")}
+            className={cn("block h-auto whitespace-normal rounded-2xl border bg-card p-4 text-left shadow-card transition", filter === "전체" && "ring-2 ring-primary")}
           >
             <div className="text-sm font-medium text-muted-foreground">전체 환자</div>
             <div className="mt-1 text-3xl font-bold">{patients.length}<span className="ml-1 text-base font-medium text-muted-foreground">명</span></div>
-          </button>
+          </Button>
           {RISK_LEVELS.map((l) => (
-            <button
+            <Button variant="ghost"
               key={l}
               onClick={() => setFilter(l)}
               className={cn(
-                "rounded-2xl border border-l-4 bg-card p-4 text-left shadow-card transition",
+                "block h-auto whitespace-normal rounded-2xl border border-l-4 bg-card p-4 text-left shadow-card transition",
                 levelStyles[l].card,
                 filter === l && "ring-2 ring-primary",
               )}
             >
               <div className="text-sm font-medium text-muted-foreground">{l}</div>
               <div className="mt-1 text-3xl font-bold">{counts[l]}<span className="ml-1 text-base font-medium text-muted-foreground">명</span></div>
-            </button>
+            </Button>
           ))}
         </section>
 
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="단계별 필터">
           {(["전체", ...RISK_LEVELS] as const).map((l) => (
-            <button
+            <Button variant="outline"
               key={l}
               role="tab"
               aria-selected={filter === l}
               onClick={() => setFilter(l)}
               className={cn(
-                "rounded-full border px-4 py-2 text-sm font-medium transition",
+                "h-auto rounded-full border px-4 py-2 text-sm font-medium transition",
                 filter === l ? "border-primary bg-primary text-primary-foreground" : "bg-card text-foreground hover:bg-muted",
               )}
             >
               {l}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -141,7 +152,7 @@ function Dashboard() {
         </section>
       </div>
 
-      {patientId && <SplitPatientDetail patientId={patientId} onClose={() => selectPatient()} />}
+      {displayedId && <SplitPatientDetail patientId={displayedId} closing={!split} onClose={() => selectPatient()} />}
     </div>
   );
 }

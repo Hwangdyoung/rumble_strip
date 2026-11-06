@@ -16,6 +16,15 @@ const log = (date: string, minutes: number): CalendarLog => ({
 });
 
 describe("play calendar", () => {
+  it("does not count zero-minute absence markers as sessions or completed tasks", () => {
+    const cells = buildMonth(patient, [log("2026-10-06", 30), log("2026-10-06", 0), log("2026-10-07", 0)], new Set(), new Set(), 2026, 9, "2026-10-20");
+    const played = cells.find((c) => c?.key === "2026-10-06");
+    const missed = cells.find((c) => c?.key === "2026-10-07");
+    expect(played?.sessions).toBe(1);
+    expect(played?.tasks).toBe(5);
+    expect(missed?.sessions).toBe(0);
+    expect(missed?.tasks).toBe(0);
+  });
   it("marks days inside the prescription window and dims days outside it", () => {
     expect(prescriptionEndKey(patient)).toBe("2026-11-01"); // 4주 = 10/05~11/01
     const cells = buildMonth(patient, [], new Set(), new Set(), 2026, 9, "2026-10-20").filter(Boolean);
