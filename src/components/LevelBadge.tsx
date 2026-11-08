@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { RiskLevel } from "@/lib/risk";
+import type { RiskCause, RiskLevel } from "@/lib/risk";
 
 export const levelStyles: Record<RiskLevel, { badge: string; dot: string; card: string }> = {
   정상: { badge: "bg-level-normal-soft text-level-normal", dot: "bg-level-normal", card: "border-level-normal" },
@@ -20,6 +20,21 @@ export function LevelBadge({ level, className }: { level: RiskLevel; className?:
     >
       <span className={cn("size-2 rounded-full", s.dot)} />
       {level}
+    </span>
+  );
+}
+
+/** 추정 원인 태그. 원인이 없으면(정상) '경과 관찰'로 표시합니다. */
+export function CauseBadge({ cause, className }: { cause: RiskCause | null; className?: string }) {
+  if (!cause) return <span className={cn("text-sm text-muted-foreground", className)}>경과 관찰</span>;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center whitespace-nowrap rounded-md border bg-secondary px-2 py-0.5 text-xs font-semibold text-secondary-foreground",
+        className,
+      )}
+    >
+      {cause}
     </span>
   );
 }

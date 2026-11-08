@@ -8,7 +8,7 @@ export const patientsOverviewQuery = () =>
     queryFn: async () => {
       const [{ data: patients, error: e1 }, { data: logs, error: e2 }] = await Promise.all([
         supabase.from("patients").select("*").order("name"),
-        supabase.from("play_logs").select("patient_id, session_start, play_minutes"),
+        supabase.from("play_logs").select("patient_id, session_start, play_minutes, accuracy, reaction_ms"),
       ]);
       if (e1) throw e1;
       if (e2) throw e2;
@@ -61,11 +61,11 @@ export async function setAlertStatus(id: string, status: AlertStatus) {
 /** 플레이 기록 저장 → 위험 재계산 → risk_scores 기록 → 필요 시 알림 생성 */
 export async function addLogAndRecalc(
   patientId: string,
-  entry: { date: string; minutes: number; tasks: number; endedEarly: boolean },
+  entry: { date: string; minutes: number; tasks: number; endedEarly: boolean; accuracy?: number | null; reactionMs?: number | null },
 ) {
   const [{ data: patient, error: pe }, { data: logs, error: le }] = await Promise.all([
     supabase.from("patients").select("*").eq("id", patientId).single(),
-    supabase.from("play_logs").select("session_start, play_minutes").eq("patient_id", patientId),
+    supabase.from("play_logs").select("session_start, play_minutes, accuracy, reaction_ms").eq("patient_id", patientId),
   ]);
   if (pe) throw pe;
   if (le) throw le;
@@ -73,7 +73,9 @@ export async function addLogAndRecalc(
 
   const start = new Date(`${entry.date}T18:00:00`);
   const end = new Date(start.getTime() + entry.minutes * 60_000);
-  const newLog = { session_start: start.toISOString(), play_minutes: entry.minutes };
+  const accuracy = entry.minutes > 0 ? (entry.accuracy ?? null) : null;
+  const reactionMs = entry.minutes > 0 ? (entry.reactionMs ?? null) : null;
+  const newLog = { session_start: start.toISOString(), play_minutes: entry.minutes, accuracy, reaction_ms: reactionMs };
   const { error: ie } = await supabase.from("play_logs").insert({
     patient_id: patientId,
     session_start: newLog.session_start,
@@ -81,6 +83,8 @@ export async function addLogAndRecalc(
     play_minutes: entry.minutes,
     tasks_completed: entry.tasks,
     ended_early: entry.endedEarly,
+    accuracy,
+    reaction_ms: reactionMs,
   });
   if (ie) throw ie;
 

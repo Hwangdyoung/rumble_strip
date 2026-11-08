@@ -36,6 +36,8 @@ function Simulator() {
   const [date, setDate] = useState(toDateKey(new Date()));
   const [minutes, setMinutes] = useState(30);
   const [tasks, setTasks] = useState(5);
+  const [accuracy, setAccuracy] = useState(80);
+  const [reaction, setReaction] = useState(650);
   const [endedEarly, setEndedEarly] = useState(false);
   const [gapDays, setGapDays] = useState(3);
   const [result, setResult] = useState<Result | null>(null);
@@ -61,7 +63,7 @@ function Simulator() {
   const mutation = useMutation({
     mutationFn: async (mode: "play" | "gap") => {
       if (mode === "play") {
-        const r = await addLogAndRecalc(patientId, { date, minutes, tasks, endedEarly });
+        const r = await addLogAndRecalc(patientId, { date, minutes, tasks, endedEarly, accuracy, reactionMs: reaction });
         return { ...r, label: `${date} · ${minutes}분 플레이 기록` };
       }
       const d = new Date(`${date}T12:00:00`);
@@ -113,12 +115,20 @@ function Simulator() {
               <Label htmlFor="tasks" className="text-base">완료 과제 수</Label>
               <Input id="tasks" type="number" min={0} max={50} value={tasks} onChange={(e) => setTasks(Number(e.target.value))} className="h-12 text-base" />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="acc" className="text-base">정확도(%)</Label>
+              <Input id="acc" type="number" min={0} max={100} value={accuracy} onChange={(e) => setAccuracy(Number(e.target.value))} className="h-12 text-base" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="rt" className="text-base">반응 속도(ms)</Label>
+              <Input id="rt" type="number" min={200} max={3000} step={10} value={reaction} onChange={(e) => setReaction(Number(e.target.value))} className="h-12 text-base" />
+            </div>
             <div className="flex items-center gap-3 pt-7">
               <Switch id="early" checked={endedEarly} onCheckedChange={setEndedEarly} />
               <Label htmlFor="early" className="text-base">중도 종료</Label>
             </div>
           </div>
-          <Button className="h-12 w-full text-base" disabled={!patientId || minutes < 1 || mutation.isPending} onClick={() => mutation.mutate("play")}>
+          <Button className="h-12 w-full text-base" disabled={!patientId || minutes < 1 || accuracy < 0 || accuracy > 100 || mutation.isPending} onClick={() => mutation.mutate("play")}>
             플레이 기록 저장
           </Button>
 
@@ -158,8 +168,19 @@ function Simulator() {
               <p className="text-base font-semibold">
                 점수 {result.after.score - result.before.score >= 0 ? "+" : ""}{result.after.score - result.before.score}점
               </p>
+              {result.after.cause && (
+                <p className="text-sm">추정 원인: <span className="font-semibold">{result.after.cause}</span></p>
+              )}
+              <ul className="space-y-1 rounded-xl bg-muted p-3 text-sm">
+                {result.after.breakdown.map((b) => (
+                  <li key={b.key} className={b.points === 0 ? "flex justify-between text-muted-foreground" : "flex justify-between"}>
+                    <span>{b.label} ({b.detail})</span>
+                    <span className="font-semibold tabular-nums">+{b.points}</span>
+                  </li>
+                ))}
+              </ul>
               <ul className="space-y-1">
-                {result.after.reasons.map((r) => <li key={r} className="text-muted-foreground">· {r}</li>)}
+                {result.after.reasons.slice(0, 4).map((r) => <li key={r} className="text-muted-foreground">· {r}</li>)}
               </ul>
               {result.alerted && (
                 <p className="flex items-center gap-2 rounded-lg bg-level-risk-soft px-3 py-2 text-level-risk">

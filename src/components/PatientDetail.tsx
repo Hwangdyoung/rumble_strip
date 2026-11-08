@@ -6,11 +6,11 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, ReferenceLine, Responsiv
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { patientDetailQuery } from "@/lib/queries";
-import { asOfFor, computeRisk, progressSummary, riskHistory, weeklySummary, RISK_CONFIG, toDateKey } from "@/lib/risk";
+import { asOfFor, computeRisk, progressSummary, riskHistory, weeklySummary, CAUSE_ACTION, RISK_CONFIG, toDateKey } from "@/lib/risk";
 import { setAlertStatus, type AlertStatus } from "@/lib/queries";
 import { alertStatusStyle } from "@/components/AlertsBell";
 import { Sparkles } from "lucide-react";
-import { LevelBadge } from "@/components/LevelBadge";
+import { CauseBadge, LevelBadge } from "@/components/LevelBadge";
 import { PlayCalendar } from "@/components/PlayCalendar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -62,14 +62,41 @@ export function PatientDetail({ id, panel = false }: { id: string; panel?: boole
             <div className="text-sm text-muted-foreground">위험 점수</div>
             <div className="text-4xl font-bold tabular-nums">{risk.score}<span className="text-lg text-muted-foreground">/100</span></div>
           </div>
-          <ActionDialog patientId={patient.id} />
+          {risk.level === "정상" ? (
+            <span className="inline-flex h-12 items-center rounded-xl bg-level-normal-soft px-4 font-semibold text-level-normal">경과 관찰 중</span>
+          ) : (
+            <ActionDialog patientId={patient.id} />
+          )}
         </div>
       </div>
+
+      <Card title="핵심 지표">
+        <div className={cn("grid grid-cols-2 gap-3", !panel && "md:grid-cols-4")}>
+          <Stat label="연속 미접속" value={`${risk.metrics.currentGap}일`} hint={risk.metrics.lastPlayDate ? `마지막 접속 ${risk.metrics.lastPlayDate.slice(5)}` : "기록 없음"} />
+          <Stat label="진행 회차" value={`${risk.metrics.sessionsDone}/${risk.metrics.sessionsExpected}회`} hint="처방 기준 대비" />
+          <Stat
+            label="최근 정확도"
+            value={risk.metrics.recentAccuracy == null ? "—" : `${Math.round(risk.metrics.recentAccuracy)}%`}
+            hint={risk.metrics.accuracyDrop >= 1 ? `처음 대비 -${Math.round(risk.metrics.accuracyDrop)}%p` : undefined}
+          />
+          <Stat
+            label="평균 세션"
+            value={risk.metrics.recentAvgMinutes == null ? "—" : `${Math.round(risk.metrics.recentAvgMinutes)}분`}
+            hint={`목표 ${patient.session_target_minutes}분`}
+          />
+        </div>
+      </Card>
 
       <div className={cn("grid min-w-0 gap-6", !panel && "lg:grid-cols-3")}>
         <section className={cn("rounded-2xl border border-teal bg-accent p-5 shadow-card", !panel && "lg:col-span-3")}>
           <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-accent-foreground"><Sparkles className="size-5" /> AI 경과 요약</h2>
           <p className="text-lg">{progressSummary(risk)}</p>
+          {risk.cause && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-base">
+              <span className="font-semibold">추정 원인</span> <CauseBadge cause={risk.cause} />
+              <span className="text-muted-foreground">· 권장 조치: {CAUSE_ACTION[risk.cause]}</span>
+            </div>
+          )}
           <p className="mt-2 text-xs text-muted-foreground">진단이나 처방 변경이 아닌 참고용 보조 정보입니다.</p>
         </section>
 
@@ -79,6 +106,22 @@ export function PatientDetail({ id, panel = false }: { id: string; panel?: boole
               <li key={r} className="flex gap-2 text-base"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />{r}</li>
             ))}
           </ul>
+          <div className="mt-5 rounded-xl bg-muted p-4">
+            <h3 className="mb-2 text-sm font-semibold">점수 계산 내역</h3>
+            <ul className="space-y-1.5 text-sm">
+              {risk.breakdown.map((b) => (
+                <li key={b.key} className={cn("flex items-baseline justify-between gap-3", b.points === 0 && "text-muted-foreground")}>
+                  <span>{b.label} <span className="text-muted-foreground">({b.detail})</span></span>
+                  <span className="font-semibold tabular-nums">+{b.points}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 flex items-baseline justify-between gap-3 border-t pt-2 text-sm font-semibold">
+              <span>합계</span>
+              <span className="tabular-nums">{risk.rawScore}점{risk.rawScore !== risk.score && ` → ${risk.score}점 적용`}</span>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">연속 미접속 7일 이상은 '치료이탈'로 판정하며 80점 이상으로 표시합니다.</p>
+          </div>
           <p className="mt-4 text-sm text-muted-foreground">경과 {risk.metrics.elapsedDays}일차 기준 · 규칙 기반 초기 가정치</p>
         </Card>
 
@@ -173,6 +216,16 @@ export function PatientDetail({ id, panel = false }: { id: string; panel?: boole
           </ul>
         )}
       </Card>
+    </div>
+  );
+}
+
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string | undefined }) {
+  return (
+    <div className="rounded-xl bg-muted p-3">
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <div className="mt-1 text-xl font-bold tabular-nums">{value}</div>
+      {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
     </div>
   );
 }
