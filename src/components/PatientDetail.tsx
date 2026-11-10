@@ -6,7 +6,9 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, ReferenceLine, Responsiv
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { patientDetailQuery } from "@/lib/queries";
-import { asOfFor, computeRisk, progressSummary, riskHistory, weeklySummary, CAUSE_ACTION, RISK_CONFIG, toDateKey } from "@/lib/risk";
+import { asOfFor, computeRisk, riskHistory, weeklySummary, CAUSE_ACTION, RISK_CONFIG, toDateKey } from "@/lib/risk";
+import type { RiskResult } from "@/lib/risk";
+import type { CalendarLog } from "@/lib/calendar";
 import { setAlertStatus, type AlertStatus } from "@/lib/queries";
 import { alertStatusStyle } from "@/components/AlertsBell";
 import { Sparkles } from "lucide-react";
@@ -17,6 +19,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { fetchAiSummary } from "@/lib/ai-summary.server";
+import { aiSummaryQueryKey, riskToAiInput, fallbackSummary } from "@/lib/ai-summary";
 
 const ACTION_TYPES = ["전화 상담", "문자", "기타"] as const;
 
@@ -40,6 +44,66 @@ export function PatientDetail({ id, panel = false }: { id: string; panel?: boole
   const history = riskHistory(patient, data.logs, asOf);
   const actionDates = [...new Set(data.actions.map((a) => toDateKey(new Date(a.created_at)).slice(5)))];
   const weeks = weeklySummary(patient, data.logs);
+
+  return (
+    <PatientDetailContent
+      id={id}
+      panel={panel}
+      patient={patient}
+      risk={risk}
+      history={history}
+      actionDates={actionDates}
+      weeks={weeks}
+      asOf={asOf}
+      logs={data.logs}
+      actions={data.actions}
+      alerts={data.alerts}
+    />
+  );
+}
+
+function PatientDetailContent({
+  id,
+  panel,
+  patient,
+  risk,
+  history,
+  actionDates,
+  weeks,
+  asOf,
+  logs,
+  actions,
+  alerts,
+}: {
+  id: string;
+  panel: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  patient: any;
+  risk: RiskResult;
+  history: ReturnType<typeof riskHistory>;
+  actionDates: string[];
+  weeks: ReturnType<typeof weeklySummary>;
+  asOf: Date;
+  logs: CalendarLog[];
+  actions: Array<{ id: string; action_type: string; memo: string | null; created_at: string }>;
+  alerts: Array<{ id: string; message: string; status: string; created_at: string }>;
+}) {
+  // AI 경과 요약 쿼리 — 환자 화면을 열 때만, 같은 점수·단계·날짜에 한 번만 호출
+  const todayKey = toDateKey(new Date());
+  const aiQueryKey = aiSummaryQueryKey(id, risk.score, risk.level, todayKey);
+  const aiSummaryQuery = useQuery({
+    queryKey: aiQueryKey,
+    queryFn: async () => {
+      const input = riskToAiInput(risk, weeks);
+      const result = await fetchAiSummary({ data: input });
+      return result.summary;
+    },
+    // 3초 안에 응답 없으면 오류 처리 → fallback
+    networkMode: "always",
+    retry: false,
+    staleTime: 1000 * 60 * 60 * 24, // 24시간 캐시
+    gcTime: 1000 * 60 * 60 * 24,
+  });
 
   return (
     <div className="space-y-6">
@@ -89,8 +153,24 @@ export function PatientDetail({ id, panel = false }: { id: string; panel?: boole
 
       <div className={cn("grid min-w-0 gap-6", !panel && "lg:grid-cols-3")}>
         <section className={cn("rounded-2xl border border-teal bg-accent p-5 shadow-card", !panel && "lg:col-span-3")}>
-          <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-accent-foreground"><Sparkles className="size-5" /> AI 경과 요약</h2>
-          <p className="text-lg">{progressSummary(risk)}</p>
+          <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-accent-foreground">
+            <Sparkles className="size-5" /> AI 경과 요약
+          </h2>
+          {/* AI 요약 텍스트: 로딩 중 / 성공 / 실패(폴백) */}
+          {aiSummaryQuery.isPending ? (
+            <p className="text-lg text-muted-foreground animate-pulse">AI 요약을 생성하는 중…</p>
+          ) : (
+            <div className="flex flex-wrap items-start gap-2">
+              <p className="text-lg flex-1">
+                {aiSummaryQuery.isError
+                  ? fallbackSummary(risk)
+                  : (aiSummaryQuery.data ?? fallbackSummary(risk))}
+              </p>
+              <span className="shrink-0 mt-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                {aiSummaryQuery.isError ? "규칙 기반 요약" : "AI가 생성한 요약"}
+              </span>
+            </div>
+          )}
           {risk.cause && (
             <div className="mt-3 flex flex-wrap items-center gap-2 text-base">
               <span className="font-semibold">추정 원인</span> <CauseBadge cause={risk.cause} />
@@ -188,25 +268,25 @@ export function PatientDetail({ id, panel = false }: { id: string; panel?: boole
       </Card>
 
       <Card title="플레이 캘린더">
-        <PlayCalendar patient={patient} logs={data.logs} actions={data.actions} alerts={data.alerts} />
+        <PlayCalendar patient={patient} logs={logs} actions={actions} alerts={alerts} />
       </Card>
 
       <Card title="알림">
-        {data.alerts.length === 0 ? (
+        {alerts.length === 0 ? (
           <p className="text-muted-foreground">이 환자의 알림이 없습니다.</p>
         ) : (
           <ul className="divide-y">
-            {data.alerts.map((a) => <AlertRow key={a.id} alert={a} patientId={patient.id} />)}
+            {alerts.map((a) => <AlertRow key={a.id} alert={a} patientId={patient.id} />)}
           </ul>
         )}
       </Card>
 
       <Card title="조치 기록">
-        {data.actions.length === 0 ? (
+        {actions.length === 0 ? (
           <p className="text-muted-foreground">아직 기록된 조치가 없습니다.</p>
         ) : (
           <ul className="divide-y">
-            {data.actions.map((a) => (
+            {actions.map((a) => (
               <li key={a.id} className={cn("flex flex-col gap-1 break-words py-3", !panel && "sm:flex-row sm:gap-4")}>
                 <span className="w-24 shrink-0 font-semibold text-primary">{a.action_type}</span>
                 <span className="flex-1">{a.memo || "메모 없음"}</span>
