@@ -74,6 +74,8 @@ export interface RiskResult {
   breakdown: BreakdownItem[];
   /** 상한 적용 전 합계 */
   rawScore: number;
+  /** 단계 구간 보정: score - rawScore (보정이 없으면 null). 항목 합계 + 보정 = score */
+  adjustment: { points: number; reason: string } | null;
   metrics: {
     elapsedDays: number;
     recentDays: number;
@@ -242,6 +244,19 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
   else level = "정상";
   const [lo, hi] = cfg.bands[level];
   const score = clamp(Math.round(rawScore), lo, hi);
+  const adjustPoints = score - Math.round(rawScore);
+  const adjustment =
+    adjustPoints === 0
+      ? null
+      : {
+          points: adjustPoints,
+          reason:
+            adjustPoints > 0
+              ? level === "치료이탈"
+                ? `치료이탈(${cfg.dropoutGapDays}일 이상 연속 미접속)은 최소 ${lo}점으로 표시`
+                : `${level} 구간 최소 ${lo}점 적용`
+              : `${level} 구간 최대 ${hi}점 적용`,
+        };
 
   // 추정 원인
   let cause: RiskCause | null = null;
@@ -272,6 +287,7 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
     reasons,
     breakdown,
     rawScore: Math.round(rawScore),
+    adjustment,
     metrics: {
       elapsedDays,
       recentDays,
@@ -357,15 +373,36 @@ export function alertMessage(name: string, before: RiskResult, after: RiskResult
   return `${head}${cause}. 이유: ${after.reasons.slice(0, 3).join(", ")}`;
 }
 
+/** 규칙 기반 요약이 근거로 삼은 수치 (chip: 화면 칩 문구, phrase: 요약 문장에 들어가는 구절) */
+export interface SummaryEvidence {
+  chip: string;
+  phrase: string;
+}
+
+/** 규칙 기반 경과 요약에 쓰이는 수치 목록. progressSummary와 같은 조건을 공유합니다. */
+export function summaryEvidence(r: RiskResult): SummaryEvidence[] {
+  const m = r.metrics;
+  const adherence = Math.round(Math.min(m.adherence, 1) * 100);
+  const out: SummaryEvidence[] = [{ chip: `순응도 ${adherence}%`, phrase: `처방 대비 ${adherence}% 수행` }];
+  if (m.currentGap >= 2) out.push({ chip: `연속 미접속 ${m.currentGap}일`, phrase: `${m.currentGap}일 연속 미접속` });
+  else out.push({ chip: `최근 7일 접속 ${m.recentDays}일`, phrase: `최근 7일 중 ${m.recentDays}일 접속` });
+  if (m.accuracyDrop >= 5) {
+    const drop = Math.round(m.accuracyDrop);
+    out.push({ chip: `정확도 하락 ${drop}%p`, phrase: `정확도 ${drop}%p 하락` });
+  }
+  if (m.sessionChange <= -0.1) {
+    const pct = Math.round(-m.sessionChange * 100);
+    out.push({ chip: `세션 시간 -${pct}%`, phrase: `세션 시간 ${pct}% 감소` });
+  } else if (m.sessionChange >= 0.1) {
+    const pct = Math.round(m.sessionChange * 100);
+    out.push({ chip: `세션 시간 +${pct}%`, phrase: `세션 시간 ${pct}% 증가` });
+  }
+  return out;
+}
+
 /** 규칙 기반 경과 요약 문장 */
 export function progressSummary(r: RiskResult): string {
-  const m = r.metrics;
-  const parts: string[] = [`처방 대비 ${Math.round(Math.min(m.adherence, 1) * 100)}% 수행`];
-  if (m.currentGap >= 2) parts.push(`${m.currentGap}일 연속 미접속`);
-  else parts.push(`최근 7일 중 ${m.recentDays}일 접속`);
-  if (m.accuracyDrop >= 5) parts.push(`정확도 ${Math.round(m.accuracyDrop)}%p 하락`);
-  if (m.sessionChange <= -0.1) parts.push(`세션 시간 ${Math.round(-m.sessionChange * 100)}% 감소`);
-  else if (m.sessionChange >= 0.1) parts.push(`세션 시간 ${Math.round(m.sessionChange * 100)}% 증가`);
+  const parts = summaryEvidence(r).map((e) => e.phrase);
   const advice: Record<RiskLevel, string> = {
     정상: "처방대로 잘 진행 중이며 경과 관찰을 유지하면 됩니다.",
     주의: "사용량이 줄고 있어 가벼운 격려 연락을 고려해 보세요.",

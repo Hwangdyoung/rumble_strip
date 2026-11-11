@@ -6,11 +6,13 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, ReferenceLine, Responsiv
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { patientDetailQuery } from "@/lib/queries";
-import { asOfFor, computeRisk, riskHistory, weeklySummary, CAUSE_ACTION, RISK_CONFIG, toDateKey } from "@/lib/risk";
+import { asOfFor, computeRisk, riskHistory, weeklySummary, summaryEvidence, CAUSE_ACTION, RISK_CONFIG, toDateKey } from "@/lib/risk";
 import type { RiskResult } from "@/lib/risk";
 import type { CalendarLog } from "@/lib/calendar";
 import { setAlertStatus, type AlertStatus } from "@/lib/queries";
 import { alertStatusStyle } from "@/components/AlertsBell";
+import { AlertOutcomePicker } from "@/components/AlertOutcome";
+import { suggestOutcome } from "@/lib/alert-outcome";
 import { Sparkles } from "lucide-react";
 import { CauseBadge, LevelBadge } from "@/components/LevelBadge";
 import { PlayCalendar } from "@/components/PlayCalendar";
@@ -20,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { fetchAiSummary } from "@/lib/ai-summary.server";
-import { aiSummaryQueryKey, riskToAiInput, fallbackSummary } from "@/lib/ai-summary";
+import { aiInputChips, aiSummaryQueryKey, riskToAiInput, fallbackSummary } from "@/lib/ai-summary";
 
 const ACTION_TYPES = ["전화 상담", "문자", "기타"] as const;
 
@@ -86,16 +88,16 @@ function PatientDetailContent({
   asOf: Date;
   logs: CalendarLog[];
   actions: Array<{ id: string; action_type: string; memo: string | null; created_at: string }>;
-  alerts: Array<{ id: string; message: string; status: string; created_at: string }>;
+  alerts: Array<{ id: string; message: string; status: string; created_at: string; outcome: string; outcome_note: string | null; alert_score: number | null; alert_level: string | null }>;
 }) {
   // AI 경과 요약 쿼리 — 환자 화면을 열 때만, 같은 점수·단계·날짜에 한 번만 호출
   const todayKey = toDateKey(new Date());
   const aiQueryKey = aiSummaryQueryKey(id, risk.score, risk.level, todayKey);
+  const aiInput = riskToAiInput(risk, weeks);
   const aiSummaryQuery = useQuery({
     queryKey: aiQueryKey,
     queryFn: async () => {
-      const input = riskToAiInput(risk, weeks);
-      const result = await fetchAiSummary({ data: input });
+      const result = await fetchAiSummary({ data: aiInput });
       return result.summary;
     },
     // 3초 안에 응답 없으면 오류 처리 → fallback
@@ -134,6 +136,8 @@ function PatientDetailContent({
         </div>
       </div>
 
+      <ScoreComposition risk={risk} />
+
       <Card title="핵심 지표">
         <div className={cn("grid grid-cols-2 gap-3", !panel && "md:grid-cols-4")}>
           <Stat label="연속 미접속" value={`${risk.metrics.currentGap}일`} hint={risk.metrics.lastPlayDate ? `마지막 접속 ${risk.metrics.lastPlayDate.slice(5)}` : "기록 없음"} />
@@ -171,6 +175,18 @@ function PatientDetailContent({
               </span>
             </div>
           )}
+          {!aiSummaryQuery.isPending && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                {aiSummaryQuery.isError ? "요약에 쓰인 수치" : "AI에 전달한 수치"}
+              </p>
+              <ul className="flex flex-wrap gap-1.5" aria-label="요약 근거 수치">
+                {(aiSummaryQuery.isError ? summaryEvidence(risk).map((e) => e.chip) : aiInputChips(aiInput)).map((c) => (
+                  <li key={c} className="rounded-full border bg-card px-2.5 py-0.5 text-xs font-medium tabular-nums">{c}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {risk.cause && (
             <div className="mt-3 flex flex-wrap items-center gap-2 text-base">
               <span className="font-semibold">추정 원인</span> <CauseBadge cause={risk.cause} />
@@ -186,22 +202,6 @@ function PatientDetailContent({
               <li key={r} className="flex gap-2 text-base"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />{r}</li>
             ))}
           </ul>
-          <div className="mt-5 rounded-xl bg-muted p-4">
-            <h3 className="mb-2 text-sm font-semibold">점수 계산 내역</h3>
-            <ul className="space-y-1.5 text-sm">
-              {risk.breakdown.map((b) => (
-                <li key={b.key} className={cn("flex items-baseline justify-between gap-3", b.points === 0 && "text-muted-foreground")}>
-                  <span>{b.label} <span className="text-muted-foreground">({b.detail})</span></span>
-                  <span className="font-semibold tabular-nums">+{b.points}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-2 flex items-baseline justify-between gap-3 border-t pt-2 text-sm font-semibold">
-              <span>합계</span>
-              <span className="tabular-nums">{risk.rawScore}점{risk.rawScore !== risk.score && ` → ${risk.score}점 적용`}</span>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">연속 미접속 7일 이상은 '치료이탈'로 판정하며 80점 이상으로 표시합니다.</p>
-          </div>
           <p className="mt-4 text-sm text-muted-foreground">경과 {risk.metrics.elapsedDays}일차 기준 · 규칙 기반 초기 가정치</p>
         </Card>
 
@@ -276,7 +276,7 @@ function PatientDetailContent({
           <p className="text-muted-foreground">이 환자의 알림이 없습니다.</p>
         ) : (
           <ul className="divide-y">
-            {alerts.map((a) => <AlertRow key={a.id} alert={a} patientId={patient.id} />)}
+            {alerts.map((a) => <AlertRow key={a.id} alert={a} patientId={patient.id} logs={logs} />)}
           </ul>
         )}
       </Card>
@@ -297,6 +297,65 @@ function PatientDetailContent({
         )}
       </Card>
     </div>
+  );
+}
+
+function ScoreComposition({ risk }: { risk: RiskResult }) {
+  const b = RISK_CONFIG.bands;
+  const thresholds = [
+    { level: "정상" as const, range: `${b["정상"][0]}–${b["정상"][1]}점` },
+    { level: "주의" as const, range: `${b["주의"][0]}–${b["주의"][1]}점` },
+    { level: "이탈 위험" as const, range: `${b["이탈 위험"][0]}–${b["이탈 위험"][1]}점` },
+    { level: "치료이탈" as const, range: `${RISK_CONFIG.dropoutGapDays}일 이상 연속 미접속 (${b["치료이탈"][0]}–${b["치료이탈"][1]}점 표시)` },
+  ];
+  return (
+    <Card title="점수 구성">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-left text-xs text-muted-foreground">
+              <th scope="col" className="py-2 pr-3 font-medium">항목</th>
+              <th scope="col" className="py-2 pr-3 font-medium">계산식</th>
+              <th scope="col" className="py-2 text-right font-medium">점수</th>
+            </tr>
+          </thead>
+          <tbody>
+            {risk.breakdown.map((item) => (
+              <tr key={item.key} className={cn("border-b", item.points === 0 && "text-muted-foreground")}>
+                <td className="py-2 pr-3 font-medium">{item.label}</td>
+                <td className="py-2 pr-3 tabular-nums">{item.detail}</td>
+                <td className="py-2 text-right font-semibold tabular-nums">{item.points}점</td>
+              </tr>
+            ))}
+            {risk.adjustment && (
+              <tr className="border-b">
+                <td className="py-2 pr-3 font-medium">단계 구간 보정</td>
+                <td className="py-2 pr-3">{risk.adjustment.reason}</td>
+                <td className="py-2 text-right font-semibold tabular-nums">
+                  {risk.adjustment.points > 0 ? "+" : ""}{risk.adjustment.points}점
+                </td>
+              </tr>
+            )}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row" colSpan={2} className="pt-2 text-left font-bold">합계 (위험 점수)</th>
+              <td className="pt-2 text-right text-base font-bold tabular-nums">{risk.score}점</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground" aria-label="단계 기준">
+        {thresholds.map((t) => (
+          <li key={t.level} className={cn(t.level === risk.level && "font-semibold text-foreground")}>
+            {t.level} {t.range}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-xs text-muted-foreground">
+        처방 기준(4주·주 5회·하루 30분) 기반 초기 가정치, 실제 데이터로 보정 필요
+      </p>
+    </Card>
   );
 }
 
@@ -381,7 +440,7 @@ function ActionDialog({ patientId }: { patientId: string }) {
 
 const STATUSES: AlertStatus[] = ["미확인", "확인", "조치완료"];
 
-function AlertRow({ alert, patientId }: { alert: { id: string; message: string; status: string; created_at: string }; patientId: string }) {
+function AlertRow({ alert, patientId, logs }: { alert: { id: string; message: string; status: string; created_at: string; outcome: string; outcome_note: string | null; alert_score: number | null; alert_level: string | null }; patientId: string; logs: CalendarLog[] }) {
   const qc = useQueryClient();
   const m = useMutation({
     mutationFn: (s: AlertStatus) => setAlertStatus(alert.id, s),
@@ -395,7 +454,10 @@ function AlertRow({ alert, patientId }: { alert: { id: string; message: string; 
     <li className="flex flex-col gap-3 py-3">
       <div className="flex-1">
         <p>{alert.message}</p>
-        <p className="text-sm text-muted-foreground">{new Date(alert.created_at).toLocaleString("ko-KR")}</p>
+        <p className="text-sm text-muted-foreground">
+          {new Date(alert.created_at).toLocaleString("ko-KR")}
+          {alert.alert_score != null && ` · 알림 당시 ${alert.alert_score}점${alert.alert_level ? ` (${alert.alert_level})` : ""}`}
+        </p>
       </div>
       <div className="flex gap-1">
         {STATUSES.map((s) => (
@@ -413,6 +475,14 @@ function AlertRow({ alert, patientId }: { alert: { id: string; message: string; 
           </Button>
         ))}
       </div>
+      <AlertOutcomePicker
+        alertId={alert.id}
+        patientId={patientId}
+        outcome={alert.outcome}
+        note={alert.outcome_note}
+        suggestion={alert.outcome === "미정" ? suggestOutcome(alert.created_at, logs) : null}
+        withNote
+      />
     </li>
   );
 }

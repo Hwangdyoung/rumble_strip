@@ -5,6 +5,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { patientsOverviewQuery } from "@/lib/queries";
+import { AlertOutcomeSummary } from "@/components/AlertOutcome";
 import { RISK_LEVELS, type RiskLevel } from "@/lib/risk";
 import { CauseBadge, LevelBadge, levelStyles } from "@/components/LevelBadge";
 import { cn } from "@/lib/utils";
@@ -165,6 +166,8 @@ function Dashboard() {
             처리 가능 인원은 1~{MAX_CAPACITY}명 (예시 환자 {MAX_CAPACITY}명 기준)입니다. 자동 설정은 점수 순으로 그 인원째 환자의 점수를 기준으로 맞춥니다.
           </p>
         </section>
+
+        <AlertOutcomeSummary />
 
         <section className={cn("grid grid-cols-2 gap-3", split ? "md:grid-cols-3" : "md:grid-cols-5")}>
           <Button variant="ghost"

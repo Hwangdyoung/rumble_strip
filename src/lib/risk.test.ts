@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeRisk, RISK_CONFIG, shouldAlert } from "./risk";
+import { computeRisk, progressSummary, RISK_CONFIG, shouldAlert, summaryEvidence } from "./risk";
 
 const patient = {
   prescription_start_date: "2026-01-01",
@@ -101,5 +101,43 @@ describe("미접속 처리", () => {
     const r = computeRisk(patient, [...logs, log(24, 0)], new Date(2026, 0, 25, 23));
     expect(r.metrics.currentGap).toBe(6);
     expect(r.level).toBe("이탈 위험");
+  });
+});
+describe("점수 구성", () => {
+  const sum = (r: ReturnType<typeof computeRisk>) => r.breakdown.reduce((a, b) => a + b.points, 0) + (r.adjustment?.points ?? 0);
+
+  it("여러 상황에서 항목 합계 + 단계 보정 = 화면 점수", () => {
+    const cases = [
+      days(21).filter((d) => d % 7 < 5).map((d) => log(d)),
+      [...days(14).filter((d) => d % 7 < 5).map((d) => log(d)), log(16), log(19)],
+      days(17).filter((d) => d % 7 < 5).map((d) => log(d)),
+      days(10).map((d) => log(d, 15, 90 - d * 3)),
+      [log(0), log(1)],
+      [],
+    ];
+    for (const logs of cases) {
+      const r = computeRisk(patient, logs, asOf);
+      expect(sum(r)).toBe(r.score);
+    }
+  });
+
+  it("치료이탈은 합계가 80점보다 낮으면 보정으로 올려 표시한다", () => {
+    const logs = days(10).filter((d) => d % 7 < 5).map((d) => log(d));
+    const r = computeRisk(patient, logs, new Date(2026, 0, 18, 23));
+    expect(r.level).toBe("치료이탈");
+    expect(sum(r)).toBe(r.score);
+    if (r.rawScore < RISK_CONFIG.bands["치료이탈"][0]) expect(r.adjustment?.points).toBeGreaterThan(0);
+  });
+
+  it("보정이 없으면 adjustment는 null", () => {
+    const r = computeRisk(patient, days(21).filter((d) => d % 7 < 5).map((d) => log(d)), asOf);
+    expect(r.adjustment).toBeNull();
+    expect(r.rawScore).toBe(r.score);
+  });
+
+  it("규칙 기반 요약 문장은 근거 수치의 구절로만 만들어진다", () => {
+    const r = computeRisk(patient, days(17).filter((d) => d % 7 < 5).map((d) => log(d)), asOf);
+    const summary = progressSummary(r);
+    for (const e of summaryEvidence(r)) expect(summary).toContain(e.phrase);
   });
 });

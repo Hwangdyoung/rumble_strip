@@ -7,6 +7,7 @@ import { alertsQuery, setAlertStatus } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { AlertOutcomePicker } from "@/components/AlertOutcome";
 
 export const alertStatusStyle: Record<string, string> = {
   미확인: "bg-level-risk-soft text-level-risk",
@@ -51,8 +52,8 @@ export function AlertsBell() {
         <ul className="max-h-96 divide-y overflow-y-auto">
           {alerts.length === 0 && <li className="p-6 text-center text-sm text-muted-foreground">알림이 없습니다.</li>}
           {alerts.map((a) => (
-            <li key={a.id}>
-              <Button variant="ghost" onClick={() => openAlert(a)} className={cn("block h-auto w-full whitespace-normal rounded-none px-4 py-3 text-left font-normal hover:bg-muted", a.status === "미확인" && "bg-secondary")}>
+            <li key={a.id} className={cn(a.status === "미확인" && "bg-secondary")}>
+              <Button variant="ghost" onClick={() => openAlert(a)} className="block h-auto w-full whitespace-normal rounded-none px-4 pb-2 pt-3 text-left font-normal hover:bg-muted">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">{a.patients?.name}</span>
                   <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", alertStatusStyle[a.status])}>{a.status}</span>
@@ -60,6 +61,9 @@ export function AlertsBell() {
                 <p className="mt-1 text-sm text-muted-foreground">{a.message}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{new Date(a.created_at).toLocaleString("ko-KR")}</p>
               </Button>
+              <div className="px-4 pb-3">
+                <AlertOutcomePicker alertId={a.id} patientId={a.patient_id} outcome={a.outcome} suggestion={a.suggestion} compact />
+              </div>
             </li>
           ))}
         </ul>

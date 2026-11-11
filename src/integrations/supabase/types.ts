@@ -61,25 +61,40 @@ export type Database = {
       }
       alerts: {
         Row: {
+          alert_level: string | null
+          alert_score: number | null
           created_at: string
           id: string
           message: string
+          outcome: string
+          outcome_at: string | null
+          outcome_note: string | null
           patient_id: string
           risk_score_id: string | null
           status: string
         }
         Insert: {
+          alert_level?: string | null
+          alert_score?: number | null
           created_at?: string
           id?: string
           message: string
+          outcome?: string
+          outcome_at?: string | null
+          outcome_note?: string | null
           patient_id: string
           risk_score_id?: string | null
           status?: string
         }
         Update: {
+          alert_level?: string | null
+          alert_score?: number | null
           created_at?: string
           id?: string
           message?: string
+          outcome?: string
+          outcome_at?: string | null
+          outcome_note?: string | null
           patient_id?: string
           risk_score_id?: string | null
           status?: string

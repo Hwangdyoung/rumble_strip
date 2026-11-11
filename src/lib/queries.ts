@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { alertMessage, asOfFor, computeRisk, shouldAlert } from "./risk";
+import { suggestOutcome, type AlertOutcome } from "./alert-outcome";
 
 export const patientsOverviewQuery = () =>
   queryOptions({
@@ -46,15 +47,52 @@ export const alertsQuery = () =>
         .order("created_at", { ascending: false })
         .limit(30);
       if (error) throw error;
-      return data ?? [];
+      const alerts = data ?? [];
+      // '회복' 제안용: 알림이 있는 환자의 플레이 기록 (가장 오래된 알림 이후만)
+      const pending = alerts.filter((a) => a.outcome === "미정");
+      if (pending.length === 0) return alerts.map((a) => ({ ...a, suggestion: null }));
+      const since = pending.reduce((min, a) => (a.created_at < min ? a.created_at : min), pending[0]!.created_at);
+      const { data: logs, error: le } = await supabase
+        .from("play_logs")
+        .select("patient_id, session_start, play_minutes")
+        .in("patient_id", [...new Set(pending.map((a) => a.patient_id))])
+        .gt("session_start", since);
+      if (le) throw le;
+      return alerts.map((a) => ({
+        ...a,
+        suggestion:
+          a.outcome === "미정" ? suggestOutcome(a.created_at, (logs ?? []).filter((l) => l.patient_id === a.patient_id)) : null,
+      }));
     },
     refetchInterval: 30_000,
+  });
+
+/** 대시보드 '알림 결과' 카드용: 전체 알림의 결과와 알림 당시 단계 */
+export const alertOutcomesQuery = () =>
+  queryOptions({
+    queryKey: ["alerts", "outcomes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("alerts").select("outcome, alert_level");
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 
 export type AlertStatus = "미확인" | "확인" | "조치완료";
 
 export async function setAlertStatus(id: string, status: AlertStatus) {
   const { error } = await supabase.from("alerts").update({ status }).eq("id", id);
+  if (error) throw error;
+}
+
+/** 알림 결과 저장. '미정'으로 되돌리면 기록 시각을 비웁니다. note가 undefined면 메모는 그대로 둡니다. */
+export async function setAlertOutcome(id: string, outcome: AlertOutcome, note?: string | null) {
+  const patch: { outcome: AlertOutcome; outcome_at: string | null; outcome_note?: string | null } = {
+    outcome,
+    outcome_at: outcome === "미정" ? null : new Date().toISOString(),
+  };
+  if (note !== undefined) patch.outcome_note = note?.trim() ? note.trim() : null;
+  const { error } = await supabase.from("alerts").update(patch).eq("id", id);
   if (error) throw error;
 }
 
@@ -101,7 +139,13 @@ export async function addLogAndRecalc(
   if (shouldAlert(before, after)) {
     const { error: ae } = await supabase
       .from("alerts")
-      .insert({ patient_id: patientId, risk_score_id: rs.id, message: alertMessage(patient.name, before, after) });
+      .insert({
+        patient_id: patientId,
+        risk_score_id: rs.id,
+        message: alertMessage(patient.name, before, after),
+        alert_score: after.score,
+        alert_level: after.level,
+      });
     if (ae) throw ae;
     alerted = true;
   }

@@ -46,7 +46,12 @@ npm run format  # prettier
   서버 코드가 쓰는 비밀 변수는 `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`(선택), `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_CRON_SECRET`.
 - DB 테이블: patients, play_logs, risk_scores, alerts, actions. 원래 스키마는 `drizzle/migrations/*.sql`.
   `play_logs`에는 `accuracy`(numeric), `reaction_ms`(integer) 컬럼이 필요하다(마이그레이션 파일에는 없음).
+  `alerts`에는 `outcome`('미정'|'회복'|'이탈'|'연락 불가', 기본 '미정'), `outcome_at`, `outcome_note`,
+  `alert_score`, `alert_level` 컬럼이 필요하다(마이그레이션 파일에는 없음, 2026-11-11 추가).
   타입은 `src/integrations/supabase/types.ts`.
+- `src/lib/alert-outcome.ts`: 알림 결과 집계와 '회복' 제안(알림 후 7일 안 플레이 기록). 제안은 자동 저장하지 않는다.
+  화면은 `src/components/AlertOutcome.tsx`(결과 선택, 대시보드 '알림 결과' 카드).
+- 환자 상세 '점수 구성' 카드: `risk.breakdown` + `risk.adjustment`(단계 구간 보정) 합계 = `risk.score`.
 
 ## 위험 단계 (규칙 기반, 초기 가정치)
 정상 0~29 / 주의 30~54 / 이탈 위험 55~79 (점수 구간, `RISK_CONFIG.bands`).
