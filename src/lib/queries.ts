@@ -83,7 +83,9 @@ export const alertOutcomesQuery = () =>
 export type AlertStatus = "미확인" | "확인" | "조치완료";
 
 export async function setAlertStatus(id: string, status: AlertStatus) {
-  const { error } = await supabase.from("alerts").update({ status }).eq("id", id);
+  // 조치완료가 되면 처리 시각을 남기고, 다른 상태로 되돌리면 지운다
+  const resolved_at = status === "조치완료" ? new Date().toISOString() : null;
+  const { error } = await supabase.from("alerts").update({ status, resolved_at }).eq("id", id);
   if (error) throw error;
 }
 
@@ -108,7 +110,7 @@ export function runDailyCheck() {
 
 export const STAFF_ROLES = ["의사", "간호사", "상담원"] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
-export type Staff = { id: string; name: string; role: string; is_admin: boolean };
+export type Staff = { id: string; name: string; role: string; is_admin: boolean; is_contact?: boolean };
 
 /** 로그인한 사람의 의료진 정보. 아직 입력하지 않았으면 staff는 null */
 export const myStaffQuery = () =>
@@ -141,10 +143,13 @@ export const patientStaffQuery = (patientId: string) =>
     queryFn: async () => {
       const { data, error } = await supabase
         .from("patient_staff")
-        .select("staff_id, staff(id, name, role, is_admin)")
+        .select("staff_id, is_contact, staff(id, name, role, is_admin)")
         .eq("patient_id", patientId);
       if (error) throw error;
-      return (data ?? []).map((r) => r.staff).filter((s): s is Staff => Boolean(s));
+      return (data ?? [])
+        .filter((r) => r.staff)
+        .map((r) => ({ ...(r.staff as Staff), is_contact: r.is_contact }))
+        .sort((a, b) => Number(b.is_contact) - Number(a.is_contact));
     },
   });
 
@@ -155,7 +160,7 @@ export const assignmentsQuery = () =>
     queryFn: async () => {
       const [p, ps] = await Promise.all([
         supabase.from("patients").select("id, name, age").order("name"),
-        supabase.from("patient_staff").select("patient_id, staff_id"),
+        supabase.from("patient_staff").select("patient_id, staff_id, is_contact"),
       ]);
       if (p.error) throw p.error;
       if (ps.error) throw ps.error;
@@ -187,4 +192,60 @@ export async function setPatientStaff(patientId: string, staffId: string, assign
 export async function updateStaff(staffId: string, patch: { role?: StaffRole; is_admin?: boolean }) {
   const { error } = await supabase.from("staff").update(patch).eq("id", staffId);
   if (error) throw error;
+}
+
+// ─── 알림 담당자·오늘 처리 목록 ──────────────────────────────────────────────
+
+/** 대시보드 '오늘 처리할 알림': 처리 안 된 알림 + 오늘 처리 완료된 알림 */
+export const worklistQuery = () =>
+  queryOptions({
+    queryKey: ["alerts", "worklist"],
+    queryFn: async () => {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const { data, error } = await supabase
+        .from("alerts")
+        .select("id, patient_id, created_at, status, alert_level, assignee_id, resolved_at, patients(name)")
+        .or(`status.neq.조치완료,resolved_at.gte.${start.toISOString()}`)
+        .order("created_at");
+      if (error) throw error;
+      return (data ?? []).map((a) => ({
+        id: a.id,
+        patient_id: a.patient_id,
+        patient_name: a.patients?.name ?? "",
+        created_at: a.created_at,
+        status: a.status,
+        alert_level: a.alert_level,
+        assignee_id: a.assignee_id,
+        resolved_at: a.resolved_at,
+      }));
+    },
+    refetchInterval: 60_000,
+  });
+
+/** 알림 담당자 지정 (null이면 미지정) */
+export async function setAlertAssignee(alertId: string, staffId: string | null) {
+  const { error } = await supabase
+    .from("alerts")
+    .update({ assignee_id: staffId, assigned_at: staffId ? new Date().toISOString() : null })
+    .eq("id", alertId);
+  if (error) throw error;
+}
+
+/** 관리자: 환자의 연락 담당 지정 (null이면 해제). 환자당 1명이라 먼저 기존 표시를 지운다.
+ *  지정하면 그 환자의 처리 안 된 미지정 알림도 배정한다. */
+export async function setPatientContact(patientId: string, staffId: string | null) {
+  const { error: e1 } = await supabase.from("patient_staff").update({ is_contact: false }).eq("patient_id", patientId).eq("is_contact", true);
+  if (e1) throw e1;
+  if (!staffId) return;
+  const { error: e2 } = await supabase.from("patient_staff").update({ is_contact: true }).eq("patient_id", patientId).eq("staff_id", staffId);
+  if (e2) throw e2;
+  // 이 환자의 처리 안 된 알림 중 담당자가 없는 것도 연락 담당에게 배정 (이미 누가 맡은 알림은 그대로)
+  const { error: e3 } = await supabase
+    .from("alerts")
+    .update({ assignee_id: staffId, assigned_at: new Date().toISOString() })
+    .eq("patient_id", patientId)
+    .is("assignee_id", null)
+    .neq("status", "조치완료");
+  if (e3) throw e3;
 }

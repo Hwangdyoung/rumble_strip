@@ -7,7 +7,7 @@ declare
   res text := '';
   admin_id uuid;
   fake uuid := gen_random_uuid();
-  p1 uuid; p2 uuid; p3 uuid;
+  p1 uuid; p2 uuid; p3 uuid; pa uuid; pa_alerts int;
   n int; total int;
   claims text;
 begin
@@ -18,6 +18,9 @@ begin
     select id into p1 from public.patients order by name limit 1;
     select id into p2 from public.patients order by name offset 1 limit 1;
     select id into p3 from public.patients order by name offset 2 limit 1;
+    -- 8번 시험용: 알림이 있는 환자 중 p1·p2가 아닌 환자
+    select patient_id into pa from public.alerts where patient_id not in (p1, p2) limit 1;
+    select count(*) into pa_alerts from public.alerts where patient_id = pa;
 
     -- 1) 관리자: 전체 환자
     perform set_config('request.jwt.claims', json_build_object('sub', admin_id, 'role', 'authenticated')::text, true);
@@ -79,6 +82,20 @@ begin
     exception when others then
       res := res || format('7. 담당 아닌 환자 조치 기록: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
     end;
+
+    -- 8) 담당 아닌 환자의 알림 담당자 바꾸기 (005 이후). 보이지 않는 행이라 0건이 바뀌어야 함
+    if pa is null then
+      res := res || '8. 담당 아닌 환자 알림의 담당자 바꾸기: 시험할 알림이 없음' || E'\n';
+    else
+      update public.alerts set assignee_id = admin_id where patient_id = pa;
+      get diagnostics n = row_count;
+      res := res || format('8. 담당 아닌 환자 알림(%s건)의 담당자 바꾸기: %s건 바뀜 (기대: 0)', pa_alerts, n) || E'\n';
+    end if;
+
+    -- 9) 일반 계정이 연락 담당 지정 (005 이후, 관리자만 가능). 0건이 바뀌어야 함
+    update public.patient_staff set is_contact = true where patient_id = p1 and staff_id = admin_id;
+    get diagnostics n = row_count;
+    res := res || format('9. 일반 계정이 연락 담당 지정: %s건 바뀜 (기대: 0)', n) || E'\n';
 
     -- 여기까지의 변경을 모두 되돌리기 위해 일부러 예외를 낸다 (결과 문장을 함께 실어 보냄)
     raise exception 'RESULT:%', res;

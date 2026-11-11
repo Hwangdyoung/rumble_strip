@@ -12,6 +12,7 @@ import type { CalendarLog } from "@/lib/calendar";
 import { setAlertStatus, type AlertStatus } from "@/lib/queries";
 import { alertStatusStyle } from "@/components/AlertsBell";
 import { AlertOutcomePicker } from "@/components/AlertOutcome";
+import { AlertAssignee } from "@/components/AlertAssignee";
 import { suggestOutcome } from "@/lib/alert-outcome";
 import { Sparkles } from "lucide-react";
 import { CauseBadge, LevelBadge } from "@/components/LevelBadge";
@@ -89,7 +90,7 @@ function PatientDetailContent({
   asOf: Date;
   logs: CalendarLog[];
   actions: Array<{ id: string; action_type: string; memo: string | null; created_at: string }>;
-  alerts: Array<{ id: string; message: string; status: string; created_at: string; outcome: string; outcome_note: string | null; alert_score: number | null; alert_level: string | null }>;
+  alerts: Array<{ id: string; message: string; status: string; created_at: string; outcome: string; outcome_note: string | null; alert_score: number | null; alert_level: string | null; assignee_id: string | null }>;
 }) {
   // AI 경과 요약 쿼리 — 환자 화면을 열 때만, 같은 점수·단계·날짜에 한 번만 호출
   const todayKey = toDateKey(new Date());
@@ -384,7 +385,7 @@ function ActionDialog({ patientId }: { patientId: string }) {
       const { error } = await supabase.from("actions").insert({ patient_id: patientId, action_type: type, memo, staff_id: u.user.id, alert_id: open?.[0]?.id ?? null });
       if (error) throw error;
       if (open?.length) {
-        const { error: ue } = await supabase.from("alerts").update({ status: "조치완료" }).in("id", open.map((a) => a.id));
+        const { error: ue } = await supabase.from("alerts").update({ status: "조치완료", resolved_at: new Date().toISOString() }).in("id", open.map((a) => a.id));
         if (ue) throw ue;
       }
     },
@@ -442,7 +443,7 @@ function ActionDialog({ patientId }: { patientId: string }) {
 
 const STATUSES: AlertStatus[] = ["미확인", "확인", "조치완료"];
 
-function AlertRow({ alert, patientId, logs }: { alert: { id: string; message: string; status: string; created_at: string; outcome: string; outcome_note: string | null; alert_score: number | null; alert_level: string | null }; patientId: string; logs: CalendarLog[] }) {
+function AlertRow({ alert, patientId, logs }: { alert: { id: string; message: string; status: string; created_at: string; outcome: string; outcome_note: string | null; alert_score: number | null; alert_level: string | null; assignee_id: string | null }; patientId: string; logs: CalendarLog[] }) {
   const qc = useQueryClient();
   const m = useMutation({
     mutationFn: (s: AlertStatus) => setAlertStatus(alert.id, s),
@@ -477,6 +478,7 @@ function AlertRow({ alert, patientId, logs }: { alert: { id: string; message: st
           </Button>
         ))}
       </div>
+      <AlertAssignee alertId={alert.id} patientId={patientId} assigneeId={alert.assignee_id} />
       <AlertOutcomePicker
         alertId={alert.id}
         patientId={patientId}

@@ -22,6 +22,11 @@ export async function runDailyCheckWith(client: SupabaseClient<Database>, now: D
   if (e1) throw e1;
   if (e2) throw e2;
   if (e3) throw e3;
+  // 연락 담당(환자당 1명): 새 알림을 자동 배정한다
+  const { data: contacts, error: ce } = await client.from("patient_staff").select("patient_id, staff_id").eq("is_contact", true);
+  if (ce) throw ce;
+  const contactOf = new Map((contacts ?? []).map((c) => [c.patient_id, c.staff_id]));
+
   const plan = planDailyCheck({ patients: patients ?? [], logs: logs ?? [], stored: stored ?? [], now });
 
   let saved = 0;
@@ -51,6 +56,8 @@ export async function runDailyCheckWith(client: SupabaseClient<Database>, now: D
         message: item.alertMessage,
         alert_score: item.after.score,
         alert_level: item.after.level,
+        assignee_id: contactOf.get(item.patientId) ?? null,
+        assigned_at: contactOf.has(item.patientId) ? realNow.toISOString() : null,
       });
       if (ae) throw ae;
       alerts++;

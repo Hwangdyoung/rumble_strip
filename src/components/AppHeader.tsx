@@ -3,9 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LogOut, UserRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 import { AlertsBell } from "@/components/AlertsBell";
-import { StaffProfileDialog } from "@/components/StaffProfile";
 import { myStaffQuery } from "@/lib/queries";
 import { displayLoginId } from "@/lib/login-id";
 
@@ -27,7 +25,6 @@ export function AppHeader() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: me } = useQuery(myStaffQuery());
-  const [profileOpen, setProfileOpen] = useState(false);
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -49,10 +46,13 @@ export function AppHeader() {
           {me?.staff?.is_admin && (
             <Link to="/admin" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>담당 관리</Link>
           )}
+          <Link to="/settings" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>설정</Link>
           <AlertsBell />
           {me?.staff ? (
-            <Button variant="ghost" size="sm" onClick={() => setProfileOpen(true)} aria-label="내 정보" className="text-muted-foreground">
-              <UserRound /> <span className="hidden lg:inline">{me.staff.name} · {me.staff.role}{me.staff.is_admin ? " · 관리자" : ""}</span>
+            <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
+              <Link to="/settings" aria-label="내 정보 (설정)">
+                <UserRound /> <span className="hidden lg:inline">{me.staff.name} · {me.staff.role}{me.staff.is_admin ? " · 관리자" : ""}</span>
+              </Link>
             </Button>
           ) : (
             me?.email && <span className="hidden text-sm text-muted-foreground lg:inline">{displayLoginId(me.email)}</span>
@@ -62,7 +62,6 @@ export function AppHeader() {
           </Button>
         </nav>
       </div>
-      <StaffProfileDialog open={profileOpen} onOpenChange={setProfileOpen} current={me?.staff ?? null} />
     </header>
   );
 }

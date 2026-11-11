@@ -102,13 +102,13 @@ export function AlertOutcomePicker({
 const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v * 100)}%`);
 
 /** 대시보드 '알림 결과' 카드: 기록된 결과 수, 결과별 비율, 알림 당시 단계별 회복 비율 */
-export function AlertOutcomeSummary() {
+export function AlertOutcomeSummary({ embedded = false }: { embedded?: boolean } = {}) {
   const { data, isPending, isError } = useQuery(alertOutcomesQuery());
   const stats = data ? outcomeStats(data) : null;
   return (
-    <section className="rounded-2xl border bg-card p-5 shadow-card" aria-label="알림 결과">
+    <section className={cn(!embedded && "rounded-2xl border bg-card p-5 shadow-card")} aria-label="알림 결과">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-bold">알림 결과</h2>
+        {!embedded && <h2 className="text-lg font-bold">알림 결과</h2>}
         <p className="text-sm text-muted-foreground">
           {stats ? `결과 기록 ${stats.recorded}건 / 전체 알림 ${stats.total}건` : isPending ? "불러오는 중…" : ""}
         </p>

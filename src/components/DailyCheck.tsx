@@ -5,12 +5,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { runDailyCheck } from "@/lib/queries";
 import { toDateKey } from "@/lib/risk";
+import { cn } from "@/lib/utils";
 
 /**
  * 대시보드를 열면 오늘 점검을 자동으로 한 번 실행합니다.
  * (배포 전 임시 방식. 배포 후에는 서버 예약 작업이 같은 점검을 매일 실행)
  */
-export function DailyCheckStatus() {
+export function DailyCheckStatus({ inline = false }: { inline?: boolean } = {}) {
   const qc = useQueryClient();
   const today = toDateKey(new Date());
   const q = useQuery({
@@ -38,6 +39,23 @@ export function DailyCheckStatus() {
   else if (d.saved === 0 && d.doneToday > 0) text = `오늘 점검 완료 (이미 점검된 환자 ${d.doneToday}명)`;
   else
     text = `오늘 점검 완료 · ${new Date(d.checkedAt).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })} · ${d.saved}명 점검 · 새 알림 ${d.alerts}건`;
+
+  // 패널 머리에 들어가는 짧은 형태
+  if (inline) {
+    let short = "";
+    if (q.isFetching) short = "점검 중…";
+    else if (q.isError) short = "점검 실패";
+    else if (d && d.saved === 0 && d.doneToday > 0) short = "오늘 점검 완료";
+    else if (d) short = `오늘 점검 완료 · 새 알림 ${d.alerts}건`;
+    return (
+      <div className="flex items-center gap-1 text-sm" role="status">
+        <span className={cn("text-muted-foreground", q.isError && "text-level-risk")} title={text}>매일 점검 · {short}</span>
+        <Button variant="ghost" size="icon" className="size-8" disabled={q.isFetching} onClick={() => q.refetch()} aria-label="지금 점검" title="지금 점검">
+          <RefreshCw className={cn("size-4", q.isFetching && "animate-spin")} />
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card px-4 py-3 text-sm shadow-card" role="status">

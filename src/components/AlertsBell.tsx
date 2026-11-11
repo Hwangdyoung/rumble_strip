@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { AlertOutcomePicker } from "@/components/AlertOutcome";
+import { AlertAssignee } from "@/components/AlertAssignee";
 
 export const alertStatusStyle: Record<string, string> = {
   미확인: "bg-level-risk-soft text-level-risk",
@@ -62,7 +63,10 @@ export function AlertsBell() {
                 <p className="mt-1 text-xs text-muted-foreground">{new Date(a.created_at).toLocaleString("ko-KR")}</p>
               </Button>
               <div className="px-4 pb-3">
-                <AlertOutcomePicker alertId={a.id} patientId={a.patient_id} outcome={a.outcome} suggestion={a.suggestion} compact />
+                <div className="space-y-2">
+                  <AlertAssignee alertId={a.id} patientId={a.patient_id} assigneeId={a.assignee_id} compact />
+                  <AlertOutcomePicker alertId={a.id} patientId={a.patient_id} outcome={a.outcome} suggestion={a.suggestion} compact />
+                </div>
               </div>
             </li>
           ))}

@@ -63,6 +63,8 @@ export type Database = {
         Row: {
           alert_level: string | null
           alert_score: number | null
+          assigned_at: string | null
+          assignee_id: string | null
           created_at: string
           id: string
           message: string
@@ -70,12 +72,15 @@ export type Database = {
           outcome_at: string | null
           outcome_note: string | null
           patient_id: string
+          resolved_at: string | null
           risk_score_id: string | null
           status: string
         }
         Insert: {
           alert_level?: string | null
           alert_score?: number | null
+          assigned_at?: string | null
+          assignee_id?: string | null
           created_at?: string
           id?: string
           message: string
@@ -83,12 +88,15 @@ export type Database = {
           outcome_at?: string | null
           outcome_note?: string | null
           patient_id: string
+          resolved_at?: string | null
           risk_score_id?: string | null
           status?: string
         }
         Update: {
           alert_level?: string | null
           alert_score?: number | null
+          assigned_at?: string | null
+          assignee_id?: string | null
           created_at?: string
           id?: string
           message?: string
@@ -96,6 +104,7 @@ export type Database = {
           outcome_at?: string | null
           outcome_note?: string | null
           patient_id?: string
+          resolved_at?: string | null
           risk_score_id?: string | null
           status?: string
         }
@@ -105,6 +114,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alerts_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
             referencedColumns: ["id"]
           },
           {
@@ -119,16 +135,19 @@ export type Database = {
       patient_staff: {
         Row: {
           created_at: string
+          is_contact: boolean
           patient_id: string
           staff_id: string
         }
         Insert: {
           created_at?: string
+          is_contact?: boolean
           patient_id: string
           staff_id: string
         }
         Update: {
           created_at?: string
+          is_contact?: boolean
           patient_id?: string
           staff_id?: string
         }

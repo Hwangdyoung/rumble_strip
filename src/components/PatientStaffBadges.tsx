@@ -16,6 +16,7 @@ export function PatientStaffBadges({ patientId }: { patientId: string }) {
         data.map((s) => (
           <span key={s.id} className="rounded-full bg-muted px-2 py-0.5 text-foreground">
             {s.name} <span className="text-muted-foreground">{s.role}</span>
+            {s.is_contact && <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-xs font-semibold text-primary">연락</span>}
           </span>
         ))
       )}

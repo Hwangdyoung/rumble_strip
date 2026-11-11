@@ -208,3 +208,16 @@
     transition: none;
   }
 }
+/* 대시보드 '오늘 업무' 패널: 탭 전환 시 옆으로 슬라이드, 높이는 보이는 탭에 맞춤 */
+.today-panel-viewport {
+  transition: height 250ms ease-out;
+}
+.today-panel-track {
+  transition: transform 300ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .today-panel-viewport,
+  .today-panel-track {
+    transition: none;
+  }
+}

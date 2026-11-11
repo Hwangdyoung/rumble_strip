@@ -46,21 +46,25 @@ npm run format  # prettier
 - `src/routes/_authenticated/`: 로그인 후 화면. `route.tsx`가 로그인 여부를 확인해 로그인 안 하면
   `/auth`(`src/routes/auth.tsx`)로 보낸다. `patients.$id.tsx`는 예전 주소를 `/dashboard?patient=ID`로 넘기는 리다이렉트다.
 - 대시보드(`dashboard.tsx`), 위에서부터:
-  - '매일 점검' 상태 줄(`src/components/DailyCheck.tsx`, '지금 점검' 버튼)
-  - '오늘 연락할 환자': 슬라이더 '알림 기준 점수' 이상이면서 정상이 아닌 환자 = '알림 대상'.
-    화면을 열 때마다 계산하고 저장하지 않는다. 종 아이콘의 알림(`alerts` 테이블)과는 다른 개념이다.
-  - '알림 결과' 카드(`AlertOutcome.tsx`의 `AlertOutcomeSummary`, "가상 데이터라 검증 결과가 아님" 문구)
-  - 단계별 환자 수 카드(한 줄 5칸), 단계 필터(인원 수 표시), 환자 목록.
+  - '오늘 업무' 패널(`TodayPanel.tsx`): 머리에 매일 점검 상태(`DailyCheck.tsx`의 inline), 탭 3개를 옆으로 슬라이드
+    (휴대폰은 좌우로 밀기, 마지막 탭은 브라우저에 기억). 분할 화면에서는 한 줄로 접힌다.
+    1. 처리할 알림(`TodayWorklist.tsx`, `src/lib/worklist.ts`): 내 담당·미지정·전체, 오래된 순, `OVERDUE_DAYS`(2일) 이상 '지연'
+    2. 연락할 환자: 알림 기준 점수 이상이면서 정상이 아닌 환자 = '알림 대상' 목록. 화면을 열 때마다 계산하고 저장하지 않는다.
+       종 아이콘의 알림(`alerts` 테이블)과는 다른 개념이다. 기준은 설정 화면에서 바꾼다(`src/lib/alert-settings.ts`, 브라우저 저장).
+    3. 알림 결과(`AlertOutcome.tsx`의 `AlertOutcomeSummary`, "가상 데이터라 검증 결과가 아님" 문구)
+  - 단계 필터(인원 수 표시)와 환자 목록.
   - 환자를 누르면 목록이 줄어들고(왼쪽 약 40%) 상세가 옆에서 밀려 들어오는 분할 화면
     (`SplitPatientDetail.tsx`, `styles.css`의 `.dashboard-split`). `?patient=ID`로 상태 유지.
     - 오른쪽 상세는 헤더 아래에 고정(sticky, 화면 높이에 맞춤)되고 안에서만 스크롤된다.
-    - 분할 중에는 왼쪽이 '목록 모드': 알림 기준 설정·알림 결과 카드를 한 줄 요약으로 접고
-      (`showSettings`로 펼치기), 단계 카드를 숨기고, 필터를 3칸×2줄로 맞춘다.
     - 모바일(768px 미만)에서는 상세가 전체 화면으로 열린다.
+- 알림 담당자(`AlertAssignee.tsx`): 알림마다 그 환자의 담당자 중 한 명을 고르거나 '내가 맡기'. 담당자가 없는 환자는 안내 문구.
+  관리자가 '담당 관리'에서 환자별 '연락 담당'(환자당 1명)을 정하면 매일 점검이 만든 알림이 자동 배정되고,
+  지정할 때 그 환자의 처리 안 된 미지정 알림도 배정된다. 조치완료가 되면 `resolved_at`을 기록한다.
+- 설정(`settings.tsx`): 알림 기준, 내 정보, 비밀번호 변경. 헤더 이름표를 누르면 설정으로 간다.
 - 담당 관리(`admin.tsx`, 관리자만): 환자 × 의료진 체크박스로 담당 배정, 의료진 역할·관리자 권한 변경.
   자기 관리자 권한은 스스로 끌 수 없다(관리자가 없어지는 것 방지).
-- 첫 로그인 시 이름·역할 입력 창(`StaffProfile.tsx`의 `StaffProfileGate`, 닫을 수 없음). 헤더 이름표로 다시 수정.
-  '내 정보' 창의 '비밀번호 변경' 버튼으로 별도 창이 열린다(현재 비밀번호 확인 후 `supabase.auth.updateUser`, 6자 이상).
+- 첫 로그인 시 이름·역할 입력 창(`StaffProfile.tsx`의 `StaffProfileGate`, 닫을 수 없음).
+  비밀번호 변경은 설정 화면(`PasswordChangeForm`: 현재 비밀번호 확인 후 `supabase.auth.updateUser`, 6자 이상).
 - 로그인(`auth.tsx`): '@'가 없는 아이디는 `@rumble-strip.test`를 붙여 이메일로 바꾼다(`src/lib/login-id.ts`).
   관리자 계정은 아이디 `admin`(= admin@rumble-strip.test). .test 주소라 비밀번호 찾기 메일을 받을 수 없다.
   회원가입은 실제 이메일로만 받는다.
@@ -103,8 +107,9 @@ npm run format  # prettier
   - `risk_scores`: `source`('record'|'daily', 기본 'record'), `check_date`(date),
     고유 인덱스 `risk_scores_daily_once`(patient_id, check_date where source='daily') (2026-11-11)
   - `staff`(의료진: id=auth.users.id, name, role '의사'|'간호사'|'상담원', is_admin), `patient_staff`(환자-담당자, 여러 명) (2026-11-12)
+  - `alerts`: `assignee_id`(→ staff), `assigned_at`, `resolved_at` / `patient_staff`: `is_contact`(환자당 1명, 관리자만 변경) (2026-11-12)
 - 손으로 실행한 SQL은 `supabase/manual-sql/`에 번호 순서로 둔다(001 알림 결과, 002 매일 점검, 003 담당 환자 RLS와
-  되돌리기·시험 SQL, 004 관리자 아이디). DB를 새로 만들 때 마이그레이션 다음에 이 순서대로 실행한다.
+  되돌리기·시험 SQL, 004 관리자 아이디, 005 알림 담당자). DB를 새로 만들 때 마이그레이션 다음에 이 순서대로 실행한다.
 - RLS(003 이후): 관리자(`is_admin()`)는 전체, 그 외에는 `patient_staff`로 연결된 환자만(`can_see_patient()`).
   - patients·play_logs: 읽기는 관리자·담당자, 쓰기는 관리자만
   - risk_scores·alerts: 담당자도 추가(대시보드 매일 점검)·알림 상태와 결과 기록 가능, 삭제는 관리자
@@ -183,7 +188,7 @@ npm run format  # prettier
 - 예전 시뮬레이터가 실제로 저장한 play_logs·risk_scores 정리 여부 결정(삭제는 사용자 확인 후).
   2026-11-11 기준 alerts는 매일 점검이 만든 3건뿐이었다. play_logs·risk_scores는 확인하지 않았다
 - 회원가입이 열려 있다(가입해도 배정 전에는 아무 환자도 안 보임). 실제 운영 전에는 Supabase에서 가입을 막고 관리자가 계정을 만드는 방식 검토
-- 알림 담당자 지정·오늘 처리 목록(2차 페르소나 평가 남은 걱정 1위), 단계별 대응 가이드·보호자 통화 문장
+- 단계별 대응 가이드·보호자 통화 문장(2차 페르소나 평가 남은 걱정 3위)
 - Lovable 전용 코드 정리(`lovable-error-reporting.ts`, `previewAuthStorage.ts`, `cron-auth.ts`, `@lovable.dev/vite-tanstack-config`)
 - 예전 상태가 남은 문서·설정 확인: `supabase/config.toml`의 `project_id`가 `.env`의 새 프로젝트와 다름,
   `README.md`는 Lovable 템플릿 그대로, `AGENTS.md` 본문의 "staff-only RLS" 설명은 003 이후 담당 환자 기준과 다름,

@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   assignmentsQuery,
   myStaffQuery,
+  setPatientContact,
   setPatientStaff,
   STAFF_ROLES,
   staffListQuery,
@@ -47,11 +48,17 @@ function AdminContent({ myId }: { myId: string }) {
     qc.invalidateQueries({ queryKey: ["patient-staff"] });
     qc.invalidateQueries({ queryKey: ["staff"] });
     qc.invalidateQueries({ queryKey: ["me"] });
+    qc.invalidateQueries({ queryKey: ["alerts"] });
   };
   const link = useMutation({
     mutationFn: (v: { patientId: string; staffId: string; on: boolean }) => setPatientStaff(v.patientId, v.staffId, v.on),
     onSuccess: refresh,
     onError: () => toast.error("담당을 바꾸지 못했습니다. 다시 시도해 주세요."),
+  });
+  const contact = useMutation({
+    mutationFn: (v: { patientId: string; staffId: string | null }) => setPatientContact(v.patientId, v.staffId),
+    onSuccess: refresh,
+    onError: () => toast.error("연락 담당을 바꾸지 못했습니다. 다시 시도해 주세요."),
   });
   const upd = useMutation({
     mutationFn: (v: { staffId: string; role?: StaffRole; is_admin?: boolean }) =>
@@ -74,6 +81,7 @@ function AdminContent({ myId }: { myId: string }) {
         <h1 className="text-2xl font-bold sm:text-3xl">담당 관리</h1>
         <p className="mt-1 text-muted-foreground">
           환자마다 담당 의료진을 정합니다. 담당자는 자기 담당 환자만 볼 수 있고, 관리자는 모든 환자를 봅니다.
+          연락 담당을 정해 두면 매일 점검이 만든 알림이 그 사람에게 자동으로 배정됩니다.
         </p>
       </div>
 
@@ -98,6 +106,10 @@ function AdminContent({ myId }: { myId: string }) {
                       <div className="text-xs font-normal text-muted-foreground">{s.role}</div>
                     </th>
                   ))}
+                  <th scope="col" className="min-w-32 px-2 py-2 text-left font-medium">
+                    <div>연락 담당</div>
+                    <div className="text-xs font-normal text-muted-foreground">알림 자동 배정</div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -119,6 +131,28 @@ function AdminContent({ myId }: { myId: string }) {
                         </td>
                       );
                     })}
+                    <td className="px-2 py-2.5">
+                      {(() => {
+                        const mine = asg.data.links.filter((l) => l.patient_id === p.id);
+                        const cur = mine.find((l) => l.is_contact)?.staff_id ?? "";
+                        if (mine.length === 0) return <span className="text-xs text-muted-foreground">담당자 먼저 지정</span>;
+                        return (
+                          <select
+                            value={cur}
+                            disabled={contact.isPending}
+                            onChange={(e) => contact.mutate({ patientId: p.id, staffId: e.target.value || null })}
+                            className={"h-8 rounded-md border border-input bg-card px-2 " + (cur ? "" : "text-level-risk")}
+                            aria-label={`${p.name} 연락 담당`}
+                          >
+                            <option value="">없음</option>
+                            {mine.map((l) => {
+                              const st = staff.data.find((x) => x.id === l.staff_id);
+                              return st ? <option key={st.id} value={st.id}>{st.name} ({st.role})</option> : null;
+                            })}
+                          </select>
+                        );
+                      })()}
+                    </td>
                   </tr>
                 ))}
               </tbody>
