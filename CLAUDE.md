@@ -60,7 +60,7 @@ npm run format  # prettier
 - 담당 관리(`admin.tsx`, 관리자만): 환자 × 의료진 체크박스로 담당 배정, 의료진 역할·관리자 권한 변경.
   자기 관리자 권한은 스스로 끌 수 없다(관리자가 없어지는 것 방지).
 - 첫 로그인 시 이름·역할 입력 창(`StaffProfile.tsx`의 `StaffProfileGate`, 닫을 수 없음). 헤더 이름표로 다시 수정.
-  같은 '내 정보' 창에 비밀번호 변경(현재 비밀번호 확인 후 `supabase.auth.updateUser`, 6자 이상)이 있다.
+  '내 정보' 창의 '비밀번호 변경' 버튼으로 별도 창이 열린다(현재 비밀번호 확인 후 `supabase.auth.updateUser`, 6자 이상)이 있다.
 - 로그인(`auth.tsx`): '@'가 없는 아이디는 `@rumble-strip.test`를 붙여 이메일로 바꾼다(`src/lib/login-id.ts`).
   관리자 계정은 아이디 `admin`(= admin@rumble-strip.test). .test 주소라 비밀번호 찾기 메일을 받을 수 없다.
   회원가입은 실제 이메일로만 받는다.
