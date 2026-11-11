@@ -29,7 +29,8 @@ npm run format  # prettier
 ## 구조
 - 프레임워크: TanStack Start(React, 파일 기반 라우팅) + Vite + Tailwind v4 + shadcn/ui. 빌드 설정은
   `@lovable.dev/vite-tanstack-config`를 쓰고, Nitro 기본 타깃이 Cloudflare라 Vercel 배포 시 조정이 필요할 수 있다.
-- `src/routes/_authenticated/`: 로그인 후 화면(dashboard, simulator). `route.tsx`가 로그인 여부를 확인해
+- `src/routes/_authenticated/`: 로그인 후 화면(dashboard, simulator). simulator는 저장 없는 미리보기 전용이다
+  (가정한 플레이·미접속을 쌓아 computeRisk로 계산만 함. DB·대시보드·알림을 바꾸지 않는다). `route.tsx`가 로그인 여부를 확인해
   로그인 안 하면 `/auth`(`src/routes/auth.tsx`)로 보낸다. `patients.$id.tsx`는 상세 화면이 아니라
   예전 주소를 `/dashboard?patient=ID`로 넘겨주는 리다이렉트다.
 - 대시보드: 환자를 누르면 목록이 줄어들고 상세가 옆에서 밀려 들어오는 분할 화면(`SplitPatientDetail.tsx`,
@@ -51,6 +52,12 @@ npm run format  # prettier
   타입은 `src/integrations/supabase/types.ts`.
 - `src/lib/alert-outcome.ts`: 알림 결과 집계와 '회복' 제안(알림 후 7일 안 플레이 기록). 제안은 자동 저장하지 않는다.
   화면은 `src/components/AlertOutcome.tsx`(결과 선택, 대시보드 '알림 결과' 카드).
+- `risk_scores`에는 `source`('record'|'daily', 기본 'record'), `check_date`(date) 컬럼과
+  고유 인덱스 `risk_scores_daily_once`(patient_id, check_date where source='daily')가 필요하다(2026-11-11 추가).
+- 알림 = 매일 점검(`src/lib/daily-check.ts`의 `planDailyCheck`, DB 저장은 `queries.ts`의 `runDailyCheck`).
+  처방 기간 중인 환자의 오늘 점수를 마지막 저장 점수(없으면 어제 기준)와 비교해 `shouldAlert`면 알림을 만든다.
+  하루 한 번만 저장. 지금은 대시보드를 열 때 자동 실행된다(`src/components/DailyCheck.tsx`, '지금 점검' 버튼).
+  게임 연동이 없어 새 플레이 기록이 들어오는 경로는 현재 없다.
 - 환자 상세 '점수 구성' 카드: `risk.breakdown` + `risk.adjustment`(단계 구간 보정) 합계 = `risk.score`.
 
 ## 위험 단계 (규칙 기반, 초기 가정치)
@@ -98,6 +105,8 @@ npm run format  # prettier
 - Lovable 쪽 GitHub 연결 해제 확인, 새 Supabase에서 안정 확인 후 Lovable DB 정리
   (Lovable 미리보기 링크가 과제 노션에 걸려 있으니 채점 후)
 - Vercel 배포(빌드 타깃 조정, 환경 변수 등록. `VITE_` 없이 `ANTHROPIC_API_KEY`)
+- 배포 후 매일 점검을 서버 예약 작업(Vercel Cron 등)으로 옮기기. 지금은 누군가 대시보드를 열어야 실행된다
+- 예전 시뮬레이터가 실제로 저장한 play_logs·risk_scores·alerts 정리 여부 결정(삭제는 사용자 확인 후)
 - 실제 운영 전 RLS 강화: 현재는 로그인한 누구나 모든 데이터를 읽고 쓸 수 있고 회원가입도 열려 있다
 - Lovable 전용 코드 정리(`lovable-error-reporting.ts`, `previewAuthStorage.ts`, `cron-auth.ts`, `@lovable.dev/vite-tanstack-config`)
 - 예전 상태가 남은 문서·설정 확인: `supabase/config.toml`의 `project_id`가 `.env`의 새 프로젝트와 다름,

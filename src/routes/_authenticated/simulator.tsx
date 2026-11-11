@@ -1,194 +1,241 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, BellRing } from "lucide-react";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { addLogAndRecalc, patientsOverviewQuery } from "@/lib/queries";
-import { toDateKey, type RiskResult } from "@/lib/risk";
+import { ArrowRight, BellRing, Info, RotateCcw, Trash2 } from "lucide-react";
+import { patientDetailQuery, patientsOverviewQuery } from "@/lib/queries";
+import { asOfFor, computeRisk, shouldAlert, toDateKey, type PlayLogLike, type RiskResult } from "@/lib/risk";
 import { LevelBadge } from "@/components/LevelBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 
 export const Route = createFileRoute("/_authenticated/simulator")({
   head: () => ({
     meta: [
-      { title: "플레이 시뮬레이터 | 이탈방지턱" },
+      { title: "시뮬레이터 | 이탈방지턱" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "description", content: "가상 플레이 기록을 넣어 위험 점수 변화를 확인합니다." },
-      { property: "og:title", content: "플레이 시뮬레이터 | 이탈방지턱" },
-      { property: "og:description", content: "가상 플레이 기록을 넣어 위험 점수 변화를 확인합니다." },
+      { name: "description", content: "가정한 플레이 기록으로 위험 점수가 어떻게 바뀌는지 미리 봅니다. 저장되지 않습니다." },
+      { property: "og:title", content: "시뮬레이터 | 이탈방지턱" },
+      { property: "og:description", content: "가정한 플레이 기록으로 위험 점수가 어떻게 바뀌는지 미리 봅니다. 저장되지 않습니다." },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(patientsOverviewQuery()),
   component: Simulator,
 });
 
-type Result = { before: RiskResult; after: RiskResult; alerted: boolean; label: string };
+const DAY = 86_400_000;
+
+/** 가정 한 단계: 하루 플레이, 또는 N일 미접속 */
+type Step =
+  | { id: number; kind: "play"; minutes: number; accuracy: number; reaction: number }
+  | { id: number; kind: "gap"; days: number };
+
+const addDays = (key: string, n: number) => {
+  const [y, m, d] = key.split("-").map(Number);
+  return toDateKey(new Date(y!, m! - 1, d! + n));
+};
+const shortDate = (key: string) => `${Number(key.slice(5, 7))}/${Number(key.slice(8, 10))}`;
+
+/** 가정 단계들을 날짜 순서대로 펼쳐 가상 기록과 마지막 날짜를 만듭니다. (DB에 저장하지 않음) */
+function expandSteps(startDate: string, steps: Step[]) {
+  let cursor = startDate;
+  const logs: PlayLogLike[] = [];
+  const rows: Array<{ id: number; label: string }> = [];
+  for (const s of steps) {
+    if (s.kind === "play") {
+      logs.push({ session_start: new Date(`${cursor}T18:00:00`).toISOString(), play_minutes: s.minutes, accuracy: s.accuracy, reaction_ms: s.reaction });
+      rows.push({ id: s.id, label: `${shortDate(cursor)} · ${s.minutes}분 플레이 (정확도 ${s.accuracy}%, 반응 ${s.reaction}ms)` });
+      cursor = addDays(cursor, 1);
+    } else {
+      const end = addDays(cursor, s.days - 1);
+      rows.push({ id: s.id, label: `${shortDate(cursor)}~${shortDate(end)} · ${s.days}일 미접속` });
+      cursor = addDays(cursor, s.days);
+    }
+  }
+  const lastDay = steps.length > 0 ? addDays(cursor, -1) : null;
+  return { logs, rows, lastDay };
+}
 
 function Simulator() {
   const { data: patients } = useSuspenseQuery(patientsOverviewQuery());
-  const qc = useQueryClient();
   const [patientId, setPatientId] = useState(patients[0]?.id ?? "");
-  const [date, setDate] = useState(toDateKey(new Date()));
+  const detail = useQuery(patientDetailQuery(patientId));
+  const [startDate, setStartDate] = useState(toDateKey(new Date()));
   const [minutes, setMinutes] = useState(30);
-  const [tasks, setTasks] = useState(5);
   const [accuracy, setAccuracy] = useState(80);
   const [reaction, setReaction] = useState(650);
-  const [endedEarly, setEndedEarly] = useState(false);
   const [gapDays, setGapDays] = useState(3);
-  const [result, setResult] = useState<Result | null>(null);
+  const [steps, setSteps] = useState<Step[]>([]);
+  const [nextId, setNextId] = useState(1);
 
-  // 선택한 환자의 마지막 기록 다음 날을 기본 날짜로
+  const patient = detail.data?.patient ?? null;
+  const baseLogs = useMemo(() => detail.data?.logs ?? [], [detail.data]);
+  const now = useMemo(() => asOfFor(baseLogs), [baseLogs]);
+
+  // 환자를 바꾸면 가정 초기화
+  useEffect(() => setSteps([]), [patientId]);
+  // 시작일 기본값: 그 환자의 현재 기준일 다음 날 (기록을 다시 불러와도 사용자가 고친 날짜는 유지)
+  const loaded = detail.isSuccess;
   useEffect(() => {
-    if (!patientId) return;
-    supabase
-      .from("play_logs")
-      .select("session_start")
-      .eq("patient_id", patientId)
-      .order("session_start", { ascending: false })
-      .limit(1)
-      .then(({ data }) => {
-        const last = data?.[0] ? new Date(data[0].session_start) : new Date();
-        const next = new Date(Math.max(last.getTime() + 86_400_000, Date.now()));
-        setDate(toDateKey(next));
-      });
-  }, [patientId, result]);
+    if (loaded) setStartDate(toDateKey(new Date(now.getTime() + DAY)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientId, loaded]);
 
-  const patient = useMemo(() => patients.find((p) => p.id === patientId), [patients, patientId]);
+  const current: RiskResult | null = patient ? computeRisk(patient, baseLogs, now) : null;
+  const sim = expandSteps(startDate, steps);
+  const after: RiskResult | null =
+    patient && sim.lastDay
+      ? computeRisk(patient, [...baseLogs, ...sim.logs], new Date(`${sim.lastDay}T23:00:00`))
+      : null;
+  const wouldAlert = current && after ? shouldAlert(current, after) : false;
 
-  const mutation = useMutation({
-    mutationFn: async (mode: "play" | "gap") => {
-      if (mode === "play") {
-        const r = await addLogAndRecalc(patientId, { date, minutes, tasks, endedEarly, accuracy, reactionMs: reaction });
-        return { ...r, label: `${date} · ${minutes}분 플레이 기록` };
-      }
-      const d = new Date(`${date}T12:00:00`);
-      d.setDate(d.getDate() + gapDays - 1);
-      const r = await addLogAndRecalc(patientId, { date: toDateKey(d), minutes: 0, tasks: 0, endedEarly: true });
-      return { ...r, label: `${date}부터 ${gapDays}일 미접속 처리` };
-    },
-    onSuccess: (r) => {
-      setResult(r);
-      qc.invalidateQueries();
-      if (r.alerted) toast.warning("새 알림이 생성되었습니다.");
-      else toast.success("저장하고 위험 점수를 다시 계산했습니다.");
-    },
-    onError: () => toast.error("저장하지 못했습니다. 다시 시도해 주세요."),
-  });
+  const add = (step: Omit<Extract<Step, { kind: "play" }>, "id"> | Omit<Extract<Step, { kind: "gap" }>, "id">) => {
+    setSteps((s) => [...s, { ...step, id: nextId } as Step]);
+    setNextId((n) => n + 1);
+  };
+  const playValid = minutes >= 1 && minutes <= 180 && accuracy >= 0 && accuracy <= 100;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold sm:text-3xl">플레이 시뮬레이터</h1>
-        <p className="mt-1 text-muted-foreground">가상 플레이 기록을 넣어 위험 점수와 단계가 어떻게 바뀌는지 확인해 보세요.</p>
+        <h1 className="text-2xl font-bold sm:text-3xl">시뮬레이터 · 위험 점수 미리보기</h1>
+        <p className="mt-1 text-muted-foreground">앞으로 이렇게 되면 위험 점수와 단계가 어떻게 바뀌는지 미리 봅니다.</p>
+        <p className="mt-2 flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
+          <Info className="size-4 shrink-0" /> 가정일 뿐 저장되지 않습니다. 대시보드, 환자 기록, 알림은 바뀌지 않습니다.
+        </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="space-y-5 rounded-2xl border bg-card p-5 shadow-card">
-          <div className="space-y-2">
-            <Label htmlFor="patient" className="text-base">환자</Label>
-            <select
-              id="patient"
-              value={patientId}
-              onChange={(e) => { setPatientId(e.target.value); setResult(null); }}
-              className="h-12 w-full rounded-md border border-input bg-card px-3 text-base"
-            >
-              {patients.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} ({p.risk.level} · {p.risk.score}점)</option>
-              ))}
-            </select>
-          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 space-y-2 sm:col-span-1">
-              <Label htmlFor="date" className="text-base">날짜</Label>
-              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-12 text-base" />
+              <Label htmlFor="patient" className="text-base">환자</Label>
+              <select
+                id="patient"
+                value={patientId}
+                onChange={(e) => setPatientId(e.target.value)}
+                className="h-12 w-full rounded-md border border-input bg-card px-3 text-base"
+              >
+                {patients.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} ({p.risk.level} · {p.risk.score}점)</option>
+                ))}
+              </select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="min" className="text-base">플레이 시간(분)</Label>
-              <Input id="min" type="number" min={1} max={180} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className="h-12 text-base" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tasks" className="text-base">완료 과제 수</Label>
-              <Input id="tasks" type="number" min={0} max={50} value={tasks} onChange={(e) => setTasks(Number(e.target.value))} className="h-12 text-base" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="acc" className="text-base">정확도(%)</Label>
-              <Input id="acc" type="number" min={0} max={100} value={accuracy} onChange={(e) => setAccuracy(Number(e.target.value))} className="h-12 text-base" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="rt" className="text-base">반응 속도(ms)</Label>
-              <Input id="rt" type="number" min={200} max={3000} step={10} value={reaction} onChange={(e) => setReaction(Number(e.target.value))} className="h-12 text-base" />
-            </div>
-            <div className="flex items-center gap-3 pt-7">
-              <Switch id="early" checked={endedEarly} onCheckedChange={setEndedEarly} />
-              <Label htmlFor="early" className="text-base">중도 종료</Label>
+            <div className="col-span-2 space-y-2 sm:col-span-1">
+              <Label htmlFor="start" className="text-base">가정 시작일</Label>
+              <Input id="start" type="date" value={startDate} onChange={(e) => e.target.value && setStartDate(e.target.value)} className="h-12 text-base" />
             </div>
           </div>
-          <Button className="h-12 w-full text-base" disabled={!patientId || minutes < 1 || accuracy < 0 || accuracy > 100 || mutation.isPending} onClick={() => mutation.mutate("play")}>
-            플레이 기록 저장
-          </Button>
+
+          <div className="rounded-xl border p-4">
+            <p className="font-semibold">하루 플레이 추가</p>
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="min" className="text-sm">시간(분)</Label>
+                <Input id="min" type="number" min={1} max={180} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className="h-11 text-base" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="acc" className="text-sm">정확도(%)</Label>
+                <Input id="acc" type="number" min={0} max={100} value={accuracy} onChange={(e) => setAccuracy(Number(e.target.value))} className="h-11 text-base" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="rt" className="text-sm">반응(ms)</Label>
+                <Input id="rt" type="number" min={200} max={3000} step={10} value={reaction} onChange={(e) => setReaction(Number(e.target.value))} className="h-11 text-base" />
+              </div>
+            </div>
+            <Button className="mt-3 h-11 w-full" disabled={!patient || !playValid} onClick={() => add({ kind: "play", minutes, accuracy, reaction })}>
+              하루 플레이 추가
+            </Button>
+          </div>
 
           <div className="rounded-xl border border-dashed p-4">
-            <p className="font-semibold">공백 만들기</p>
-            <p className="mt-1 text-sm text-muted-foreground">위 날짜부터 접속하지 않은 날을 만듭니다.</p>
+            <p className="font-semibold">미접속 추가</p>
             <div className="mt-3 flex gap-2">
-              <Input type="number" min={1} max={14} value={gapDays} onChange={(e) => setGapDays(Number(e.target.value))} className="h-12 w-24 text-base" aria-label="미접속 일수" />
-              <Button variant="outline" className="h-12 flex-1 text-base" disabled={!patientId || gapDays < 1 || mutation.isPending} onClick={() => mutation.mutate("gap")}>
-                {gapDays}일 미접속 처리
+              <Input type="number" min={1} max={28} value={gapDays} onChange={(e) => setGapDays(Number(e.target.value))} className="h-11 w-24 text-base" aria-label="미접속 일수" />
+              <Button variant="outline" className="h-11 flex-1" disabled={!patient || gapDays < 1 || gapDays > 28} onClick={() => add({ kind: "gap", days: gapDays })}>
+                {gapDays}일 미접속 추가
               </Button>
             </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <p className="font-semibold">가정 순서</p>
+              <Button variant="ghost" size="sm" disabled={steps.length === 0} onClick={() => setSteps([])}>
+                <RotateCcw className="size-4" /> 초기화
+              </Button>
+            </div>
+            {sim.rows.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">위에서 플레이나 미접속을 추가하면 순서대로 쌓입니다.</p>
+            ) : (
+              <ol className="mt-2 space-y-1">
+                {sim.rows.map((r, i) => (
+                  <li key={r.id} className="flex items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
+                    <span>{i + 1}. {r.label}</span>
+                    <Button variant="ghost" size="icon" className="size-7" aria-label={`${i + 1}번 가정 빼기`} onClick={() => setSteps((s) => s.filter((x) => x.id !== r.id))}>
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
         </section>
 
         <section className="rounded-2xl border bg-card p-5 shadow-card">
-          <h2 className="text-lg font-bold">변화 결과</h2>
-          {!result ? (
+          <h2 className="text-lg font-bold">변화 미리보기</h2>
+          {!current ? (
+            <p className="mt-4 text-muted-foreground">{detail.isError ? "환자 기록을 불러오지 못했습니다." : "환자 기록을 불러오는 중…"}</p>
+          ) : !after ? (
             <div className="mt-4 space-y-3">
-              <p className="text-muted-foreground">기록을 저장하면 이전 → 이후 비교가 여기에 표시됩니다.</p>
-              {patient && (
-                <div className="flex items-center gap-3 rounded-xl bg-muted p-4">
-                  <span className="text-muted-foreground">현재</span>
-                  <span className="text-3xl font-bold tabular-nums">{patient.risk.score}</span>
-                  <LevelBadge level={patient.risk.level} />
-                </div>
-              )}
+              <p className="text-muted-foreground">가정을 추가하면 지금 → 가정 후 비교가 여기에 표시됩니다.</p>
+              <div className="flex items-center gap-3 rounded-xl bg-muted p-4">
+                <span className="text-muted-foreground">지금</span>
+                <span className="text-3xl font-bold tabular-nums">{current.score}</span>
+                <LevelBadge level={current.level} />
+              </div>
             </div>
           ) : (
             <div className="mt-4 space-y-4">
-              <p className="text-sm text-muted-foreground">{result.label}</p>
+              <p className="text-sm text-muted-foreground">{sim.lastDay && `${shortDate(sim.lastDay)}까지 가정한 결과`}</p>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                <ScoreBox title="이전" r={result.before} />
+                <ScoreBox title="지금" r={current} />
                 <ArrowRight className="size-6 text-muted-foreground" />
-                <ScoreBox title="이후" r={result.after} />
+                <ScoreBox title="가정 후" r={after} />
               </div>
               <p className="text-base font-semibold">
-                점수 {result.after.score - result.before.score >= 0 ? "+" : ""}{result.after.score - result.before.score}점
+                점수 {after.score - current.score >= 0 ? "+" : ""}{after.score - current.score}점
               </p>
-              {result.after.cause && (
-                <p className="text-sm">추정 원인: <span className="font-semibold">{result.after.cause}</span></p>
-              )}
+              {after.cause && <p className="text-sm">추정 원인: <span className="font-semibold">{after.cause}</span></p>}
               <ul className="space-y-1 rounded-xl bg-muted p-3 text-sm">
-                {result.after.breakdown.map((b) => (
+                {after.breakdown.map((b) => (
                   <li key={b.key} className={b.points === 0 ? "flex justify-between text-muted-foreground" : "flex justify-between"}>
                     <span>{b.label} ({b.detail})</span>
-                    <span className="font-semibold tabular-nums">+{b.points}</span>
+                    <span className="font-semibold tabular-nums">{b.points}점</span>
                   </li>
                 ))}
+                {after.adjustment && (
+                  <li className="flex justify-between">
+                    <span>단계 구간 보정 ({after.adjustment.reason})</span>
+                    <span className="font-semibold tabular-nums">{after.adjustment.points > 0 ? "+" : ""}{after.adjustment.points}점</span>
+                  </li>
+                )}
               </ul>
               <ul className="space-y-1">
-                {result.after.reasons.slice(0, 4).map((r) => <li key={r} className="text-muted-foreground">· {r}</li>)}
+                {after.reasons.slice(0, 4).map((r) => <li key={r} className="text-muted-foreground">· {r}</li>)}
               </ul>
-              {result.alerted && (
+              {wouldAlert && (
                 <p className="flex items-center gap-2 rounded-lg bg-level-risk-soft px-3 py-2 text-level-risk">
-                  <BellRing className="size-4" /> 알림이 생성되었습니다.
+                  <BellRing className="size-4 shrink-0" /> 이렇게 되면 매일 점검에서 알림 조건에 해당합니다. (실제 알림은 만들지 않음)
                 </p>
               )}
-              <Button asChild variant="outline"><Link to="/patients/$id" params={{ id: patientId }}>환자 상세 보기</Link></Button>
             </div>
+          )}
+          {patient && (
+            <Button asChild variant="outline" className="mt-4">
+              <Link to="/dashboard" search={{ patient: patientId }}>환자 상세 보기</Link>
+            </Button>
           )}
         </section>
       </div>

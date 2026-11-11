@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { patientsOverviewQuery } from "@/lib/queries";
 import { AlertOutcomeSummary } from "@/components/AlertOutcome";
+import { DailyCheckStatus } from "@/components/DailyCheck";
 import { RISK_LEVELS, type RiskLevel } from "@/lib/risk";
 import { CauseBadge, LevelBadge, levelStyles } from "@/components/LevelBadge";
 import { cn } from "@/lib/utils";
@@ -109,6 +110,8 @@ function Dashboard() {
           <h1 className="text-2xl font-bold sm:text-3xl">환자 이탈 위험 현황</h1>
           <p className="mt-1 text-muted-foreground">위험 점수가 높은 환자부터 먼저 연락해 보세요.</p>
         </div>
+
+        <DailyCheckStatus />
 
         <section className="space-y-4 rounded-2xl border bg-card p-5 shadow-card" aria-label="알림 기준 설정">
           <div className="flex flex-wrap items-baseline justify-between gap-2">

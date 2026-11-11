@@ -196,27 +196,33 @@ export type Database = {
       risk_scores: {
         Row: {
           calculated_at: string
+          check_date: string | null
           id: string
           level: string
           patient_id: string
           reasons: Json
           score: number
+          source: string
         }
         Insert: {
           calculated_at?: string
+          check_date?: string | null
           id?: string
           level: string
           patient_id: string
           reasons?: Json
           score: number
+          source?: string
         }
         Update: {
           calculated_at?: string
+          check_date?: string | null
           id?: string
           level?: string
           patient_id?: string
           reasons?: Json
           score?: number
+          source?: string
         }
         Relationships: [
           {

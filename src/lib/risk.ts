@@ -364,7 +364,7 @@ export function shouldAlert(before: Pick<RiskResult, "score" | "level">, after: 
   return after.score - before.score >= ALERT_SCORE_JUMP;
 }
 
-export function alertMessage(name: string, before: RiskResult, after: RiskResult): string {
+export function alertMessage(name: string, before: Pick<RiskResult, "score" | "level">, after: RiskResult): string {
   const head =
     after.level !== before.level
       ? `${name}님이 '${before.level}' → '${after.level}' 단계로 바뀌었습니다`
