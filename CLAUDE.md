@@ -160,9 +160,9 @@ npm run format  # prettier
 - Lovable 쪽 GitHub 연결 해제 확인, 새 Supabase에서 안정 확인 후 Lovable DB 정리
   (Lovable 미리보기 링크가 과제 노션에 걸려 있으니 채점 후)
 - 배포 사이트 AI 요약용 환경 변수(`ANTHROPIC_API_KEY`, `SUPABASE_PUBLISHABLE_KEY`)는 크레딧 충전 때 함께 등록
-- Vercel Cron 동작 확인: Settings → Cron Jobs에 `/api/daily-check`가 보이는지, Run 결과가 200인지.
-  배포 주소를 비밀 값 없이 부르면 401이 나오는 것은 확인함(2026-11-11). Vercel 문서상 Cron Jobs는 'Schedules'로
-  옮겨질 예정인 기능이다
+- Vercel Cron을 'Schedules'로 옮길지 결정. 현재 Cron Jobs(Legacy)로 등록·동작 중이다
+  (2026-11-11: Vercel 프로젝트 메뉴 Schedules → Cron Jobs에 `/api/daily-check` Active, 수동 Run 결과 HTTP 200).
+  Vercel 화면에서 'deprecated, Schedules로 옮기라'는 안내가 나온다
 - 예전 시뮬레이터가 실제로 저장한 play_logs·risk_scores 정리 여부 결정(삭제는 사용자 확인 후).
   2026-11-11 기준 alerts는 매일 점검이 만든 3건뿐이었다. play_logs·risk_scores는 확인하지 않았다
 - 실제 운영 전 RLS 강화: 현재는 로그인한 누구나 모든 데이터를 읽고 쓸 수 있고 회원가입도 열려 있다
