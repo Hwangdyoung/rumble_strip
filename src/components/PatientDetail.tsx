@@ -27,6 +27,8 @@ import { fetchAiSummary } from "@/lib/ai-summary.server";
 import { aiInputChips, aiSummaryQueryKey, riskToAiInput, fallbackSummary } from "@/lib/ai-summary";
 
 const ACTION_TYPES = ["전화 상담", "문자", "기타"] as const;
+// 그래프 툴팁: 다크 모드에서도 읽히도록 테마 색을 쓴다
+const TOOLTIP_STYLE = { background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--popover-foreground)" };
 
 function Card({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
@@ -227,7 +229,7 @@ function PatientDetailContent({
                 {actionDates.map((d) => (
                   <ReferenceLine key={d} x={d} stroke="var(--teal)" strokeWidth={2} label={{ value: "조치", position: "insideTopRight", fill: "var(--teal)", fontSize: 12 }} />
                 ))}
-                <Tooltip formatter={(v: number, _n, item) => [`${v}점 (${item.payload.level})`, "위험 점수"]} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "var(--muted-foreground)" }} formatter={(v: number, _n, item) => [`${v}점 (${item.payload.level})`, "위험 점수"]} />
                 <Area type="monotone" dataKey="score" stroke="var(--primary)" strokeWidth={2.5} fill="url(#riskFill)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -246,7 +248,7 @@ function PatientDetailContent({
                   <XAxis dataKey="week" tick={{ fontSize: 13, fill: "var(--muted-foreground)" }} />
                   <YAxis domain={[0, 7]} allowDecimals={false} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
                   <ReferenceLine y={patient.weekly_target_days} stroke="var(--teal)" strokeDasharray="4 4" />
-                  <Tooltip formatter={(v: number) => [`${v}일`, "접속 일수"]} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "var(--muted-foreground)" }} formatter={(v: number) => [`${v}일`, "접속 일수"]} />
                   <Bar dataKey="days" fill="var(--primary)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -261,7 +263,7 @@ function PatientDetailContent({
                   <XAxis dataKey="week" tick={{ fontSize: 13, fill: "var(--muted-foreground)" }} />
                   <YAxis domain={[0, 40]} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
                   <ReferenceLine y={patient.session_target_minutes} stroke="var(--teal)" strokeDasharray="4 4" />
-                  <Tooltip formatter={(v: number) => [`${v}분`, "평균 세션"]} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "var(--muted-foreground)" }} formatter={(v: number) => [`${v}분`, "평균 세션"]} />
                   <Bar dataKey="avgMinutes" fill="var(--teal)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>

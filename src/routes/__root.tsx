@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
+import { PREFS_BOOT_SCRIPT, watchSystemTheme } from "@/lib/preferences";
 
 function NotFoundComponent() {
   return (
@@ -109,8 +110,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <head>
+        {/* 다크 모드·글자 크기 설정을 첫 화면 전에 적용 (깜빡임 방지) */}
+        <script dangerouslySetInnerHTML={{ __html: PREFS_BOOT_SCRIPT }} />
         <HeadContent />
       </head>
       <body>
@@ -133,6 +136,9 @@ function RootComponent() {
     });
     return () => data.subscription.unsubscribe();
   }, [router, queryClient]);
+
+  // '시스템 따라감' 다크 모드: 기기 설정이 바뀌면 다시 적용
+  useEffect(() => watchSystemTheme(), []);
 
   return (
     <QueryClientProvider client={queryClient}>

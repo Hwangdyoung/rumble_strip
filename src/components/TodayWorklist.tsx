@@ -7,7 +7,8 @@ import { LevelBadge } from "@/components/LevelBadge";
 import { alertStatusStyle } from "@/components/AlertsBell";
 import { myStaffQuery, staffListQuery, worklistQuery } from "@/lib/queries";
 import { RISK_LEVELS, type RiskLevel } from "@/lib/risk";
-import { buildWorklist, OVERDUE_DAYS, type WorkTab } from "@/lib/worklist";
+import { buildWorklist, type WorkTab } from "@/lib/worklist";
+import { usePreferences } from "@/lib/preferences";
 import { cn } from "@/lib/utils";
 
 const TAB_LABEL: Record<WorkTab, string> = { mine: "내 담당", unassigned: "미지정", all: "전체" };
@@ -21,11 +22,12 @@ export function TodayWorklist({ compact = false, embedded = false }: { compact?:
   const myId = me?.staff?.id ?? null;
   const [tab, setTab] = useState<WorkTab>("mine");
   const [expanded, setExpanded] = useState(false);
+  const { overdueDays } = usePreferences();
 
   if (isPending) return <section className="rounded-2xl border bg-card px-4 py-3 text-sm text-muted-foreground shadow-card" role="status">오늘 처리할 알림을 불러오는 중…</section>;
   if (isError) return <section className="rounded-2xl border bg-card px-4 py-3 text-sm shadow-card">오늘 처리할 알림을 불러오지 못했습니다.</section>;
 
-  const w = buildWorklist(alerts, myId);
+  const w = buildWorklist(alerts, myId, new Date(), overdueDays);
   const nameOf = (id: string | null) => (id === null ? "미지정" : (staff.find((s) => s.id === id)?.name ?? "알 수 없음"));
   const open = (patientId: string) => navigate({ to: "/dashboard", search: { patient: patientId }, resetScroll: false });
 
@@ -116,7 +118,7 @@ export function TodayWorklist({ compact = false, embedded = false }: { compact?:
           ))}
         </p>
       )}
-      <p className="text-xs text-muted-foreground">알림 후 {OVERDUE_DAYS}일 이상 처리되지 않으면 '지연'으로 표시합니다(초기 가정치). 알림을 누르면 환자 상세가 열립니다.</p>
+      <p className="text-xs text-muted-foreground">알림 후 {overdueDays}일 이상 처리되지 않으면 '지연'으로 표시합니다(설정 → 업무에서 변경). 알림을 누르면 환자 상세가 열립니다.</p>
     </section>
   );
 }

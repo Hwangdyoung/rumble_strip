@@ -17,8 +17,11 @@ export function TodayPanel({
   headerRight,
   tabs,
   collapsed = false,
+  initialTabId = "last",
 }: {
   title: string;
+  /** 처음 열 탭. "last"면 마지막에 본 탭 */
+  initialTabId?: string;
   headerRight?: ReactNode;
   tabs: PanelTab[];
   collapsed?: boolean;
@@ -32,8 +35,8 @@ export function TodayPanel({
   // 마지막으로 본 탭 기억 (이 브라우저에서만)
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(TAB_KEY);
-      const i = tabs.findIndex((t) => t.id === saved);
+      const want = initialTabId === "last" ? window.localStorage.getItem(TAB_KEY) : initialTabId;
+      const i = tabs.findIndex((t) => t.id === want);
       if (i >= 0) setIndex(i);
     } catch {
       /* 저장값을 못 읽으면 첫 탭 */

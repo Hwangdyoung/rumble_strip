@@ -121,6 +121,53 @@
   --sidebar-ring: oklch(0.6 0.12 220);
 }
 
+/* 다크 모드: html에 .dark가 붙으면 적용 (설정 → 화면, src/lib/preferences.ts) */
+.dark {
+  --background: oklch(0.17 0.015 240);
+  --foreground: oklch(0.93 0.01 230);
+  --card: oklch(0.215 0.018 240);
+  --card-foreground: oklch(0.93 0.01 230);
+  --popover: oklch(0.235 0.02 240);
+  --popover-foreground: oklch(0.93 0.01 230);
+  --primary: oklch(0.7 0.12 230);
+  --primary-foreground: oklch(0.16 0.02 240);
+  --secondary: oklch(0.29 0.035 215);
+  --secondary-foreground: oklch(0.9 0.03 210);
+  --muted: oklch(0.26 0.018 240);
+  --muted-foreground: oklch(0.72 0.02 235);
+  --accent: oklch(0.3 0.045 195);
+  --accent-foreground: oklch(0.9 0.05 190);
+  --destructive: oklch(0.65 0.2 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.31 0.018 240);
+  --input: oklch(0.36 0.02 240);
+  --ring: oklch(0.7 0.12 225);
+  --teal: oklch(0.72 0.11 190);
+  --level-normal: oklch(0.74 0.14 155);
+  --level-normal-soft: oklch(0.3 0.06 155);
+  --level-caution: oklch(0.8 0.14 85);
+  --level-caution-soft: oklch(0.32 0.06 85);
+  --level-caution-ink: oklch(0.86 0.12 85);
+  --level-risk: oklch(0.73 0.17 40);
+  --level-risk-soft: oklch(0.32 0.07 40);
+  --level-dropout: oklch(0.72 0.02 250);
+  --level-dropout-soft: oklch(0.3 0.012 250);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 30%), 0 4px 16px -8px oklch(0 0 0 / 45%);
+  --chart-1: oklch(0.7 0.12 230);
+  --chart-2: oklch(0.72 0.11 190);
+  --chart-3: oklch(0.8 0.14 85);
+  --chart-4: oklch(0.73 0.17 40);
+  --chart-5: oklch(0.72 0.02 250);
+  --sidebar: oklch(0.2 0.016 240);
+  --sidebar-foreground: oklch(0.93 0.01 230);
+  --sidebar-primary: oklch(0.7 0.12 230);
+  --sidebar-primary-foreground: oklch(0.16 0.02 240);
+  --sidebar-accent: oklch(0.29 0.035 215);
+  --sidebar-accent-foreground: oklch(0.9 0.03 210);
+  --sidebar-border: oklch(0.31 0.018 240);
+  --sidebar-ring: oklch(0.7 0.12 225);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
@@ -220,4 +267,22 @@
   .today-panel-track {
     transition: none;
   }
+}
+
+/* 글자 크게 보기 (설정 → 화면) */
+html[data-text="large"] {
+  font-size: 112.5%;
+}
+html[data-text="large"] body {
+  font-size: 19px;
+}
+
+/* 움직임 줄이기 (설정 → 화면): 슬라이드·애니메이션을 끈다 */
+html[data-motion="reduce"] *,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }

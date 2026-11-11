@@ -43,6 +43,12 @@ describe("buildWorklist", () => {
     expect(list.doneToday).toBe(1);
   });
 
+  it("지연 기준 일수를 바꿀 수 있다", () => {
+    const w = buildWorklist([a("1", 9), a("2", 7)], "me", now, 4); // 1일·3일 지남
+    expect(w.items.all.map((x) => x.overdue)).toEqual([false, false]);
+    expect(buildWorklist([a("2", 7)], "me", now, 1).items.all[0]?.overdue).toBe(true);
+  });
+
   it("로그인 정보가 없으면 내 담당은 비어 있다", () => {
     expect(buildWorklist([a("1", 9, { assignee_id: "me" })], null, now).items.mine).toEqual([]);
   });

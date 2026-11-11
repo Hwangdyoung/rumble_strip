@@ -249,3 +249,13 @@ export async function setPatientContact(patientId: string, staffId: string | nul
     .neq("status", "조치완료");
   if (e3) throw e3;
 }
+
+/** 설정 → 데이터: 알림 결과 내보내기용 (볼 수 있는 환자의 알림 전체) */
+export async function fetchAlertExport() {
+  const { data, error } = await supabase
+    .from("alerts")
+    .select("created_at, alert_score, alert_level, status, outcome, outcome_at, outcome_note, resolved_at, patients(name), assignee:staff!alerts_assignee_id_fkey(name)")
+    .order("created_at");
+  if (error) throw error;
+  return data ?? [];
+}

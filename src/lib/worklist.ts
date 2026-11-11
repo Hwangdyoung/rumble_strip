@@ -5,7 +5,7 @@
  */
 import { toDateKey } from "./risk";
 
-/** '지연' 기준 (초기 가정치) */
+/** '지연' 기본 기준 (초기 가정치, 설정 → 업무에서 바꿀 수 있음) */
 export const OVERDUE_DAYS = 2;
 const DAY = 86_400_000;
 
@@ -35,13 +35,13 @@ export interface Worklist {
   doneToday: number;
 }
 
-export function buildWorklist(alerts: WorkAlert[], myId: string | null, now: Date = new Date()): Worklist {
+export function buildWorklist(alerts: WorkAlert[], myId: string | null, now: Date = new Date(), overdueDays: number = OVERDUE_DAYS): Worklist {
   const today = toDateKey(now);
   const open = alerts
     .filter((a) => a.status !== "조치완료")
     .map((a) => {
       const ageDays = Math.max(0, Math.floor((now.getTime() - new Date(a.created_at).getTime()) / DAY));
-      return { ...a, ageDays, overdue: ageDays >= OVERDUE_DAYS };
+      return { ...a, ageDays, overdue: ageDays >= overdueDays };
     })
     .sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0));
 

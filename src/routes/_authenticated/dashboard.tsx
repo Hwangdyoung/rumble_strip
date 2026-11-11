@@ -8,6 +8,7 @@ import { patientsOverviewQuery, worklistQuery } from "@/lib/queries";
 import { AlertOutcomeSummary } from "@/components/AlertOutcome";
 import { DailyCheckStatus } from "@/components/DailyCheck";
 import { useAlertSettings } from "@/lib/alert-settings";
+import { usePreferences } from "@/lib/preferences";
 import { TodayPanel } from "@/components/TodayPanel";
 import { TodayWorklist } from "@/components/TodayWorklist";
 import { RISK_LEVELS, type RiskLevel } from "@/lib/risk";
@@ -57,7 +58,8 @@ function Dashboard() {
     return () => window.clearTimeout(timer);
   }, [selectedId]);
   const displayedId = selectedId ?? retainedId;
-  const [filter, setFilter] = useState<Filter>("전체");
+  const prefs = usePreferences();
+  const [filter, setFilter] = useState<Filter>(prefs.defaultFilter);
 
   // 알림 기준(threshold)과 하루 처리 가능 인원: 설정 화면에서 바꾸고 여기서는 읽기만 한다 (이 브라우저에 저장)
   const { threshold, capacity } = useAlertSettings();
@@ -84,6 +86,7 @@ function Dashboard() {
         <TodayPanel
           title="오늘 업무"
           collapsed={split}
+          initialTabId={prefs.firstTab}
           headerRight={<DailyCheckStatus inline />}
           tabs={[
             {
@@ -103,7 +106,7 @@ function Dashboard() {
                       알림 기준 <b className="tabular-nums">{threshold}점 이상</b> · 처리 가능 {capacity}명
                       {diff > 0 ? <span className="font-semibold text-level-risk"> · {diff}명 초과</span> : <span className="text-muted-foreground"> · 여유 {-diff}명</span>}
                     </p>
-                    <Link to="/settings" className="text-sm font-medium text-primary underline-offset-2 hover:underline">기준 바꾸기</Link>
+                    <Link to="/settings" search={{ section: "work" }} className="text-sm font-medium text-primary underline-offset-2 hover:underline">기준 바꾸기</Link>
                   </div>
                   {targets.length === 0 ? (
                     <p className="py-4 text-center text-sm text-muted-foreground">지금 기준으로 연락할 환자가 없습니다.</p>
