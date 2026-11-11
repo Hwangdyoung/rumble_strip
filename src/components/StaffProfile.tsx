@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { myStaffQuery, saveMyStaff, STAFF_ROLES, type Staff, type StaffRole } from "@/lib/queries";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 /** 내 정보(이름·역할) 입력 창. required면 닫을 수 없음(첫 로그인). */
@@ -52,7 +53,7 @@ export function StaffProfileDialog({
     <Dialog open={open} onOpenChange={(v) => (!required || !v ? onOpenChange(v) : undefined)}>
       <DialogContent
         // 첫 입력(required)에서는 닫기 버튼을 숨기고 바깥 클릭·ESC로 닫히지 않게 함
-        className={cn("w-[calc(100%-2rem)] max-w-md", required && "[&>button.absolute]:hidden")}
+        className={cn("max-h-[90dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto", required && "[&>button.absolute]:hidden")}
         onEscapeKeyDown={(e) => required && e.preventDefault()}
         onPointerDownOutside={(e) => required && e.preventDefault()}
       >
@@ -93,6 +94,7 @@ export function StaffProfileDialog({
             </Button>
           </DialogFooter>
         </form>
+        {!required && <PasswordChange />}
       </DialogContent>
     </Dialog>
   );
@@ -103,4 +105,75 @@ export function StaffProfileGate() {
   const { data } = useQuery(myStaffQuery());
   const needs = Boolean(data && data.userId && !data.staff);
   return <StaffProfileDialog open={needs} onOpenChange={() => {}} current={null} required />;
+}
+
+/**
+ * 비밀번호 변경: 현재 비밀번호를 한 번 확인한 뒤 새 비밀번호로 바꾼다.
+ * 비밀번호 값은 Supabase 인증으로만 보내고 어디에도 저장·출력하지 않는다.
+ */
+function PasswordChange() {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const mismatch = confirm.length > 0 && next !== confirm;
+  const valid = current.length > 0 && next.length >= 6 && next === confirm && next !== current;
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!valid) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const email = u.user?.email;
+      if (!email) throw new Error("로그인이 필요합니다.");
+      // 현재 비밀번호 확인
+      const check = await supabase.auth.signInWithPassword({ email, password: current });
+      if (check.error) {
+        setError("현재 비밀번호가 올바르지 않습니다.");
+        return;
+      }
+      const { error: ue } = await supabase.auth.updateUser({ password: next });
+      if (ue) {
+        setError(ue.message.toLowerCase().includes("password") ? `비밀번호를 바꾸지 못했습니다: ${ue.message}` : "비밀번호를 바꾸지 못했습니다. 다시 시도해 주세요.");
+        return;
+      }
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+      toast.success("비밀번호를 바꿨습니다. 다음 로그인부터 새 비밀번호를 쓰세요.");
+    } catch {
+      setError("비밀번호를 바꾸지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-3 border-t pt-5" aria-label="비밀번호 변경">
+      <h3 className="font-semibold">비밀번호 변경</h3>
+      <div className="space-y-1.5">
+        <Label htmlFor="pw-current">현재 비밀번호</Label>
+        <Input id="pw-current" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} className="h-11" />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="pw-next">새 비밀번호 (6자 이상)</Label>
+        <Input id="pw-next" type="password" autoComplete="new-password" minLength={6} value={next} onChange={(e) => setNext(e.target.value)} className="h-11" />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="pw-confirm">새 비밀번호 확인</Label>
+        <Input id="pw-confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="h-11" aria-invalid={mismatch} />
+        {mismatch && <p className="text-sm text-level-risk">새 비밀번호가 서로 다릅니다.</p>}
+      </div>
+      {error && <p className="rounded-lg bg-level-risk-soft px-3 py-2 text-sm text-level-risk">{error}</p>}
+      <div className="flex justify-end">
+        <Button type="submit" variant="outline" className="h-11" disabled={!valid || saving}>
+          {saving ? "바꾸는 중…" : "비밀번호 바꾸기"}
+        </Button>
+      </div>
+    </form>
+  );
 }
