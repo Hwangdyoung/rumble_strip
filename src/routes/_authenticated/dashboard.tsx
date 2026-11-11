@@ -3,7 +3,7 @@ import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
 import { patientsOverviewQuery } from "@/lib/queries";
 import { AlertOutcomeSummary } from "@/components/AlertOutcome";
 import { DailyCheckStatus } from "@/components/DailyCheck";
@@ -62,6 +62,8 @@ function Dashboard() {
   }, [selectedId]);
   const displayedId = selectedId ?? retainedId;
   const [filter, setFilter] = useState<Filter>("전체");
+  // 상세가 열려 있을 때 알림 기준 설정·알림 결과 카드를 펼칠지
+  const [showSettings, setShowSettings] = useState(false);
 
   // 알림 기준(threshold)과 하루 처리 가능 인원
   const [threshold, setThreshold] = useState(55);
@@ -113,6 +115,25 @@ function Dashboard() {
 
         <DailyCheckStatus />
 
+        {split && !showSettings ? (
+          <section className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border bg-card px-4 py-3 shadow-card" aria-label="오늘 연락할 환자 요약">
+            <p className="text-sm">
+              <span className="font-semibold">오늘 연락할 환자 {targets.length}명</span>
+              <span className="text-muted-foreground"> · 알림 기준 {threshold}점 이상 · 처리 가능 {capacity}명</span>
+            </p>
+            <Button variant="ghost" size="sm" onClick={() => setShowSettings(true)}>
+              설정·알림 결과 펼치기 <ChevronDown className="size-4" />
+            </Button>
+          </section>
+        ) : (
+        <>
+        {split && (
+          <div className="flex justify-end">
+            <Button variant="ghost" size="sm" onClick={() => setShowSettings(false)}>
+              설정·알림 결과 접기 <ChevronUp className="size-4" />
+            </Button>
+          </div>
+        )}
         <section className="space-y-4 rounded-2xl border bg-card p-5 shadow-card" aria-label="알림 기준 설정">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-bold">오늘 연락할 환자</h2>
@@ -171,8 +192,11 @@ function Dashboard() {
         </section>
 
         <AlertOutcomeSummary />
+        </>
+        )}
 
-        <section className={cn("grid grid-cols-2 gap-3", split ? "md:grid-cols-3" : "md:grid-cols-5")}>
+        {!split && (
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
           <Button variant="ghost"
             onClick={() => setFilter("전체")}
             className={cn("block h-auto whitespace-normal rounded-2xl border bg-card p-4 text-left shadow-card transition", filter === "전체" && "ring-2 ring-primary")}
@@ -195,8 +219,9 @@ function Dashboard() {
             </Button>
           ))}
         </section>
+        )}
 
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="단계별 필터">
+        <div className={cn("gap-2", split ? "grid grid-cols-3" : "flex flex-wrap")} role="tablist" aria-label="단계별 필터">
           {(["전체", "알림 대상", ...RISK_LEVELS] as const).map((l) => (
             <Button variant="outline"
               key={l}
@@ -204,11 +229,15 @@ function Dashboard() {
               aria-selected={filter === l}
               onClick={() => setFilter(l)}
               className={cn(
-                "h-auto rounded-full border px-4 py-2 text-sm font-medium transition",
+                "h-auto rounded-full border text-sm font-medium transition",
+                split ? "w-full px-2 py-2" : "px-4 py-2",
                 filter === l ? "border-primary bg-primary text-primary-foreground" : "bg-card text-foreground hover:bg-muted",
               )}
             >
               {l}
+              <span className={cn("tabular-nums", filter === l ? "opacity-80" : "text-muted-foreground")}>
+                {l === "전체" ? patients.length : l === "알림 대상" ? targets.length : counts[l]}
+              </span>
             </Button>
           ))}
         </div>
