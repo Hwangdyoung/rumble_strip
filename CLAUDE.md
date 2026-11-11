@@ -60,7 +60,12 @@ npm run format  # prettier
   - 근거 칩: AI 요약이면 `aiInputChips`(Claude에 보낸 수치), 규칙 기반이면 `summaryEvidence`(문장에 쓰인 수치).
 - `src/components/AlertsBell.tsx`: 종 아이콘 알림 목록(최근 30건). 알림마다 결과 버튼(메모는 환자 상세에서만).
 - `src/lib/risk.ts`: 위험 점수·단계 계산의 유일한 위치. 임계값은 `RISK_CONFIG`. 점수는 클라이언트에서 play_logs로 계산한다.
-- `src/lib/daily-check.ts`: 매일 점검 계획(`planDailyCheck`, 순수 함수). DB 저장은 `queries.ts`의 `runDailyCheck`.
+- `src/lib/daily-check.ts`: 매일 점검 계획(`planDailyCheck`, 순수 함수), 한국 시간 `koreaNow`, Cron 인증 `isAuthorizedCron`.
+- `src/lib/daily-check-run.ts`: 매일 점검 DB 조회·저장(`runDailyCheckWith(client, now)`). 대시보드는 `queries.ts`의
+  `runDailyCheck`(로그인 사용자 클라이언트), Cron은 `src/routes/api/daily-check.ts`(관리자 클라이언트)로 같은 함수를 쓴다.
+- `src/routes/api/daily-check.ts`: Vercel Cron이 부르는 서버 주소(GET). `CRON_SECRET` 확인 후 실행, 아니면 401.
+  관리자 클라이언트(`client.server.ts`)는 핸들러 안에서 동적 import한다.
+- `vercel.json`: Cron 설정. 매일 `0 0 * * *`(UTC 0시 = 한국 9시대, 무료 플랜은 그 시간 안 아무 때나 실행).
 - `src/lib/alert-outcome.ts`: 알림 결과 집계(`outcomeStats`)와 '회복' 제안(`suggestOutcome`, 알림 후 7일 안 플레이 기록).
   제안은 문구로만 보여주고 자동 저장하지 않는다.
 - `src/lib/calendar.ts`: 캘린더 표시용 집계. 위험 계산은 risk.ts에 맡긴다.
@@ -70,7 +75,8 @@ npm run format  # prettier
 - `src/integrations/supabase/`: 브라우저 클라이언트(`client.ts`), 서버용 service_role 클라이언트(`client.server.ts`),
   로그인 확인 미들웨어(`auth-middleware.ts`), Lovable 크론용 인증(`cron-auth.ts`, 현재 어디서도 쓰지 않음).
 - 환경 변수 이름: `.env`에 `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_PROJECT_ID`와 각각의 `VITE_` 버전.
-  서버 코드가 쓰는 비밀 변수는 `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`(선택), `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_CRON_SECRET`.
+  서버 코드가 쓰는 비밀 변수는 `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`(선택), `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`,
+  `LOVABLE_CRON_SECRET`(쓰지 않음). 비밀 변수는 Vercel 환경 변수(서버)에만 둔다.
 
 ## DB
 - 테이블: patients, play_logs, risk_scores, alerts, actions. 원래 스키마는 `drizzle/migrations/*.sql`.
@@ -98,8 +104,11 @@ npm run format  # prettier
   `shouldAlert`(이탈 위험·치료이탈로 올라감, 또는 `ALERT_SCORE_JUMP` 15점 이상 상승)면 알림을 만든다.
   알림에는 당시 점수·단계(`alert_score`, `alert_level`)를 함께 저장한다.
 - 환자별로 하루 한 번만 저장한다(고유 인덱스로 중복 방지). 처방 시작 전·종료 환자는 점검하지 않는다.
-- 지금은 대시보드를 열 때 자동 실행된다(배포 전 임시 방식). 아무도 앱을 열지 않은 날은 점검이 안 되고,
-  다음에 열 때 마지막 점검과 비교한다.
+- 실행 경로 두 가지(같은 날 둘 다 돌아도 하루 한 번만 저장):
+  - Vercel Cron: 매일 한국 9시대에 `/api/daily-check`. 프로덕션 배포에서만 돈다. 무료 플랜은 실행이 빠질 수 있다.
+  - 대시보드를 열 때 자동 실행 + '지금 점검' 버튼(Cron이 빠진 날의 보험).
+- 날짜는 항상 한국 시간 기준(`koreaNow`). Vercel 서버는 UTC라서 그대로 쓰면 날짜가 어긋나 중복 저장될 수 있다.
+  남은 차이: 한국 0~9시 플레이 기록은 서버 계산에서 전날로 셀 수 있다.
 - 게임 연동이 없어 새 플레이 기록이 들어오는 경로는 현재 없다(예전 시뮬레이터 저장 기능 `addLogAndRecalc`는 제거).
 - 2026-11-11 첫 점검: 8명 점검, 새 알림 3건 생성을 화면에서 확인.
 
@@ -145,8 +154,9 @@ npm run format  # prettier
 - Lovable 쪽 GitHub 연결 해제 확인, 새 Supabase에서 안정 확인 후 Lovable DB 정리
   (Lovable 미리보기 링크가 과제 노션에 걸려 있으니 채점 후)
 - Vercel 배포 확인: GitHub `main` 자동 배포 여부, 환경 변수 등록 여부(`ANTHROPIC_API_KEY`는 `VITE_` 없이 서버 변수로)
-- 매일 점검을 서버 예약 작업(Vercel Cron 등)으로 옮기기. 배포는 됐으니 이제 가능하다.
-  지금은 누군가 대시보드를 열어야 실행된다
+- Vercel Cron 활성화 확인(2026-11-11 코드 추가): Vercel 환경 변수 `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`,
+  `SUPABASE_URL` 등록 → Redeploy → Cron 수동 실행 또는 주소 호출로 확인. Vercel 문서상 Cron Jobs는 'Schedules'로
+  옮겨질 예정인 기능이다
 - 예전 시뮬레이터가 실제로 저장한 play_logs·risk_scores 정리 여부 결정(삭제는 사용자 확인 후).
   2026-11-11 기준 alerts는 매일 점검이 만든 3건뿐이었다. play_logs·risk_scores는 확인하지 않았다
 - 실제 운영 전 RLS 강화: 현재는 로그인한 누구나 모든 데이터를 읽고 쓸 수 있고 회원가입도 열려 있다

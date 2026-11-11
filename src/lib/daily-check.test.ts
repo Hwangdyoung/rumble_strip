@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planDailyCheck, prescriptionStatus, type StoredScore } from "./daily-check";
+import { isAuthorizedCron, koreaNow, planDailyCheck, prescriptionStatus, type StoredScore } from "./daily-check";
 
 const patient = {
   id: "p1",
@@ -83,5 +83,27 @@ describe("planDailyCheck", () => {
       now: now(16),
     });
     expect(plan.items).toHaveLength(1);
+  });
+});
+
+describe("koreaNow", () => {
+  it("UTC 기준 시각을 한국 날짜·시간으로 바꾼다", () => {
+    // 2026-01-14 23:30 UTC = 2026-01-15 08:30 KST
+    const k = koreaNow(new Date(Date.UTC(2026, 0, 14, 23, 30)));
+    expect([k.getFullYear(), k.getMonth() + 1, k.getDate(), k.getHours(), k.getMinutes()]).toEqual([2026, 1, 15, 8, 30]);
+  });
+});
+
+describe("isAuthorizedCron", () => {
+  it("Bearer + 비밀 값이 정확히 같을 때만 통과", () => {
+    expect(isAuthorizedCron("Bearer abc1234567890xyz", "abc1234567890xyz")).toBe(true);
+    expect(isAuthorizedCron("Bearer wrong", "abc1234567890xyz")).toBe(false);
+    expect(isAuthorizedCron("abc1234567890xyz", "abc1234567890xyz")).toBe(false);
+    expect(isAuthorizedCron(null, "abc1234567890xyz")).toBe(false);
+  });
+
+  it("비밀 값이 설정되지 않았으면 항상 거부", () => {
+    expect(isAuthorizedCron("Bearer ", undefined)).toBe(false);
+    expect(isAuthorizedCron("Bearer ", "")).toBe(false);
   });
 });

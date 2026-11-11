@@ -125,3 +125,38 @@ export function planDailyCheck(input: {
 
   return { checkDate, items, skipped };
 }
+
+/**
+ * 한국 시간(Asia/Seoul) 기준 '지금'.
+ * 반환한 Date의 연·월·일·시(getFullYear, getDate 등)가 한국 벽시계와 같습니다.
+ * Vercel 서버는 UTC로 돌아서, 그대로 쓰면 '오늘 날짜'가 한국과 달라질 수 있습니다.
+ * 한국에서 연 브라우저에서는 new Date()와 같습니다.
+ */
+export function koreaNow(at: Date = new Date()): Date {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return new Date(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+}
+
+/**
+ * Vercel Cron 요청 확인: Authorization 헤더가 정확히 `Bearer <CRON_SECRET>`이어야 합니다.
+ * 비밀 값이 설정되지 않았으면 항상 거부합니다.
+ */
+export function isAuthorizedCron(authorization: string | null, secret: string | undefined): boolean {
+  if (!secret) return false;
+  const expected = `Bearer ${secret}`;
+  const given = authorization ?? "";
+  // 길이가 달라도 같은 시간이 걸리도록 끝까지 비교
+  let diff = given.length ^ expected.length;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ (given.charCodeAt(i) || 0);
+  return diff === 0;
+}

@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedSimulatorRouteImport } from './routes/_authenticated/simulator'
+import { Route as ApiDailyCheckRouteImport } from './routes/api/daily-check'
 import { Route as AuthenticatedPatientsIdRouteImport } from './routes/_authenticated/patients.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -40,6 +41,11 @@ const AuthenticatedSimulatorRoute = AuthenticatedSimulatorRouteImport.update({
   path: '/simulator',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiDailyCheckRoute = ApiDailyCheckRouteImport.update({
+  id: '/api/daily-check',
+  path: '/api/daily-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedPatientsIdRoute = AuthenticatedPatientsIdRouteImport.update({
   id: '/patients/$id',
   path: '/patients/$id',
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/simulator': typeof AuthenticatedSimulatorRoute
+  '/api/daily-check': typeof ApiDailyCheckRoute
   '/patients/$id': typeof AuthenticatedPatientsIdRoute
 }
 export interface FileRoutesByTo {
@@ -58,6 +65,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/simulator': typeof AuthenticatedSimulatorRoute
+  '/api/daily-check': typeof ApiDailyCheckRoute
   '/patients/$id': typeof AuthenticatedPatientsIdRoute
 }
 export interface FileRoutesById {
@@ -67,13 +75,26 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/simulator': typeof AuthenticatedSimulatorRoute
+  '/api/daily-check': typeof ApiDailyCheckRoute
   '/_authenticated/patients/$id': typeof AuthenticatedPatientsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/dashboard' | '/simulator' | '/patients/$id'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/simulator'
+    | '/api/daily-check'
+    | '/patients/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/simulator' | '/patients/$id'
+  to:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/simulator'
+    | '/api/daily-check'
+    | '/patients/$id'
   id:
     | '__root__'
     | '/'
@@ -81,6 +102,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/dashboard'
     | '/_authenticated/simulator'
+    | '/api/daily-check'
     | '/_authenticated/patients/$id'
   fileRoutesById: FileRoutesById
 }
@@ -88,6 +110,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiDailyCheckRoute: typeof ApiDailyCheckRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -127,6 +150,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSimulatorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/daily-check': {
+      id: '/api/daily-check'
+      path: '/api/daily-check'
+      fullPath: '/api/daily-check'
+      preLoaderRoute: typeof ApiDailyCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/patients/$id': {
       id: '/_authenticated/patients/$id'
       path: '/patients/$id'
@@ -156,6 +186,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiDailyCheckRoute: ApiDailyCheckRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

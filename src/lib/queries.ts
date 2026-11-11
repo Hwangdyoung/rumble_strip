@@ -1,7 +1,8 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { asOfFor, computeRisk } from "./risk";
-import { planDailyCheck } from "./daily-check";
+import { koreaNow } from "./daily-check";
+import { runDailyCheckWith } from "./daily-check-run";
 import { suggestOutcome, type AlertOutcome } from "./alert-outcome";
 
 export const patientsOverviewQuery = () =>
@@ -97,55 +98,7 @@ export async function setAlertOutcome(id: string, outcome: AlertOutcome, note?: 
   if (error) throw error;
 }
 
-/**
- * 매일 점검: 처방 중인 환자의 오늘 점수를 마지막 점검과 비교해 저장하고, 나빠졌으면 알림을 만듭니다.
- * 같은 환자는 하루에 한 번만 저장됩니다 (DB 고유 인덱스 risk_scores_daily_once).
- */
-export async function runDailyCheck(now: Date = new Date()) {
-  const [{ data: patients, error: e1 }, { data: logs, error: e2 }, { data: stored, error: e3 }] = await Promise.all([
-    supabase.from("patients").select("*"),
-    supabase.from("play_logs").select("patient_id, session_start, play_minutes, accuracy, reaction_ms"),
-    supabase.from("risk_scores").select("patient_id, score, level, calculated_at, source, check_date"),
-  ]);
-  if (e1) throw e1;
-  if (e2) throw e2;
-  if (e3) throw e3;
-  const plan = planDailyCheck({ patients: patients ?? [], logs: logs ?? [], stored: stored ?? [], now });
-
-  let saved = 0;
-  let alerts = 0;
-  for (const item of plan.items) {
-    const { data: rs, error } = await supabase
-      .from("risk_scores")
-      .insert({
-        patient_id: item.patientId,
-        score: item.after.score,
-        level: item.after.level,
-        reasons: item.after.reasons,
-        source: "daily",
-        check_date: plan.checkDate,
-      })
-      .select("id")
-      .single();
-    if (error) {
-      if (error.code === "23505") continue; // 다른 화면에서 방금 점검함 → 알림 중복 방지
-      throw error;
-    }
-    saved++;
-    if (item.alertMessage) {
-      const { error: ae } = await supabase.from("alerts").insert({
-        patient_id: item.patientId,
-        risk_score_id: rs.id,
-        message: item.alertMessage,
-        alert_score: item.after.score,
-        alert_level: item.after.level,
-      });
-      if (ae) throw ae;
-      alerts++;
-    }
-  }
-
-  const ended = plan.skipped.filter((s) => s.reason !== "오늘 점검 완료").length;
-  const doneToday = plan.skipped.filter((s) => s.reason === "오늘 점검 완료").length;
-  return { checkDate: plan.checkDate, checkedAt: now.toISOString(), saved, alerts, doneToday, outOfPrescription: ended };
+/** 매일 점검 (대시보드에서 로그인한 의료진 권한으로 실행). 실제 처리는 daily-check-run.ts */
+export function runDailyCheck() {
+  return runDailyCheckWith(supabase, koreaNow());
 }
