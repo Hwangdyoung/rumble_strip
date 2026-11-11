@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { Disclaimer } from "@/components/Disclaimer";
+import { StaffProfileGate } from "@/components/StaffProfile";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -16,6 +17,7 @@ export const Route = createFileRoute("/_authenticated")({
         <Outlet />
       </main>
       <Disclaimer />
+      <StaffProfileGate />
     </div>
   ),
 });

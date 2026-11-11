@@ -21,6 +21,8 @@ AI는 진단·처방을 바꾸지 않는 참고용 보조 도구다. 모든 UI �
   없어서 배포 사이트의 AI 요약은 규칙 기반으로 나올 것(추정).
   `CRON_SECRET` 값 끝에 줄바꿈이 있으면 Vercel 빌드가 실패한다(`openssl rand -hex 24 | tr -d '\n' | pbcopy`로 만들 것).
 - 저장소는 비공개였고, 조원에게 보여주려고 공개 또는 Collaborator 초대를 검토했다(실제 설정은 사용자가 GitHub에서 함).
+- 2026-11-12: 의료진 계정별 담당 환자 접근 제한(RLS), 관리자 '담당 관리' 화면, 아이디 로그인(admin)을 추가했다.
+  DB 시험 SQL(003_staff_rls_test.sql)로 7가지 접근 규칙이 기대대로인 것을 확인했다.
 
 ## 실행
 ```sh
@@ -55,6 +57,12 @@ npm run format  # prettier
     - 분할 중에는 왼쪽이 '목록 모드': 알림 기준 설정·알림 결과 카드를 한 줄 요약으로 접고
       (`showSettings`로 펼치기), 단계 카드를 숨기고, 필터를 3칸×2줄로 맞춘다.
     - 모바일(768px 미만)에서는 상세가 전체 화면으로 열린다.
+- 담당 관리(`admin.tsx`, 관리자만): 환자 × 의료진 체크박스로 담당 배정, 의료진 역할·관리자 권한 변경.
+  자기 관리자 권한은 스스로 끌 수 없다(관리자가 없어지는 것 방지).
+- 첫 로그인 시 이름·역할 입력 창(`StaffProfile.tsx`의 `StaffProfileGate`, 닫을 수 없음). 헤더 이름표로 다시 수정.
+- 로그인(`auth.tsx`): '@'가 없는 아이디는 `@rumble-strip.test`를 붙여 이메일로 바꾼다(`src/lib/login-id.ts`).
+  관리자 계정은 아이디 `admin`(= admin@rumble-strip.test). .test 주소라 비밀번호 찾기 메일을 받을 수 없다.
+  회원가입은 실제 이메일로만 받는다.
 - 시뮬레이터(`simulator.tsx`): 저장 없는 미리보기 전용. 가정한 플레이·미접속을 순서대로 쌓아 `computeRisk`로 계산만 한다.
   DB·대시보드·알림을 바꾸지 않는다. 알림 조건에 해당하면 안내 문구만 띄운다.
 - `src/components/PatientDetail.tsx`: 환자 상세. 점수 구성 카드, 핵심 지표, AI 경과 요약(+근거 수치 칩), 위험 이유,
@@ -93,8 +101,16 @@ npm run format  # prettier
     `alert_score`, `alert_level` (2026-11-11)
   - `risk_scores`: `source`('record'|'daily', 기본 'record'), `check_date`(date),
     고유 인덱스 `risk_scores_daily_once`(patient_id, check_date where source='daily') (2026-11-11)
-- RLS: 원래 마이그레이션은 다섯 테이블 모두 로그인 사용자(authenticated)에게 읽기·쓰기·삭제를 전부 허용한다.
-  테이블 단위 정책이라 새 컬럼에도 같이 적용된다. 실제 Supabase의 정책 목록은 아직 직접 확인하지 않았다.
+  - `staff`(의료진: id=auth.users.id, name, role '의사'|'간호사'|'상담원', is_admin), `patient_staff`(환자-담당자, 여러 명) (2026-11-12)
+- 손으로 실행한 SQL은 `supabase/manual-sql/`에 번호 순서로 둔다(001 알림 결과, 002 매일 점검, 003 담당 환자 RLS와
+  되돌리기·시험 SQL, 004 관리자 아이디). DB를 새로 만들 때 마이그레이션 다음에 이 순서대로 실행한다.
+- RLS(003 이후): 관리자(`is_admin()`)는 전체, 그 외에는 `patient_staff`로 연결된 환자만(`can_see_patient()`).
+  - patients·play_logs: 읽기는 관리자·담당자, 쓰기는 관리자만
+  - risk_scores·alerts: 담당자도 추가(대시보드 매일 점검)·알림 상태와 결과 기록 가능, 삭제는 관리자
+  - actions: 담당자가 자기 이름(staff_id = auth.uid())으로만 기록, 수정·삭제는 본인이나 관리자
+  - staff: 모두 읽기, 자기 정보만 만들고 고침, 관리자 권한은 관리자만 바꿈 / patient_staff: 추가·삭제는 관리자만
+  - Vercel Cron 매일 점검은 service role이라 RLS와 관계없이 전체 환자를 점검한다.
+  - 정책을 바꾸면 `003_staff_rls_test.sql`을 다시 돌려 확인한다(시험 중 변경은 자동으로 되돌린다).
 
 ## 위험 단계 (규칙 기반, 초기 가정치)
 정상 0~29 / 주의 30~54 / 이탈 위험 55~79 (점수 구간, `RISK_CONFIG.bands`).
@@ -165,8 +181,9 @@ npm run format  # prettier
   Vercel 화면에서 'deprecated, Schedules로 옮기라'는 안내가 나온다
 - 예전 시뮬레이터가 실제로 저장한 play_logs·risk_scores 정리 여부 결정(삭제는 사용자 확인 후).
   2026-11-11 기준 alerts는 매일 점검이 만든 3건뿐이었다. play_logs·risk_scores는 확인하지 않았다
-- 실제 운영 전 RLS 강화: 현재는 로그인한 누구나 모든 데이터를 읽고 쓸 수 있고 회원가입도 열려 있다
+- 회원가입이 열려 있다(가입해도 배정 전에는 아무 환자도 안 보임). 실제 운영 전에는 Supabase에서 가입을 막고 관리자가 계정을 만드는 방식 검토
+- 알림 담당자 지정·오늘 처리 목록(2차 페르소나 평가 남은 걱정 1위), 단계별 대응 가이드·보호자 통화 문장
 - Lovable 전용 코드 정리(`lovable-error-reporting.ts`, `previewAuthStorage.ts`, `cron-auth.ts`, `@lovable.dev/vite-tanstack-config`)
 - 예전 상태가 남은 문서·설정 확인: `supabase/config.toml`의 `project_id`가 `.env`의 새 프로젝트와 다름,
-  `README.md`는 Lovable 템플릿 그대로, `AGENTS.md` 본문은 "staff-only RLS"라고 적혀 있어 위 RLS 설명과 다름,
+  `README.md`는 Lovable 템플릿 그대로, `AGENTS.md` 본문의 "staff-only RLS" 설명은 003 이후 담당 환자 기준과 다름,
   `prompts.md`의 시뮬레이터 설명(재계산·알림 생성)은 지금과 다름

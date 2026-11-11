@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/AppHeader";
 import { Disclaimer } from "@/components/Disclaimer";
+import { loginIdToEmail } from "@/lib/login-id";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -42,8 +43,9 @@ function AuthPage() {
     setError(null);
     setInfo(null);
     if (mode === "login") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+      // 아이디만 입력하면(예: admin) 정해진 주소를 붙여 이메일로 바꾼다
+      const { error } = await supabase.auth.signInWithPassword({ email: loginIdToEmail(email), password });
+      if (error) setError("아이디(이메일) 또는 비밀번호가 올바르지 않습니다.");
       else navigate({ to: "/dashboard", replace: true });
     } else {
       const { data, error } = await supabase.auth.signUp({
@@ -69,8 +71,18 @@ function AuthPage() {
           <p className="mt-1 text-muted-foreground">스타러커스 처방 환자의 이탈 위험을 확인하세요.</p>
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-base">이메일</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="h-12 text-base" />
+              <Label htmlFor="email" className="text-base">{mode === "login" ? "아이디 또는 이메일" : "이메일"}</Label>
+              <Input
+                id="email"
+                type={mode === "login" ? "text" : "email"}
+                autoComplete={mode === "login" ? "username" : "email"}
+                autoCapitalize="none"
+                spellCheck={false}
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-12 text-base"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password" className="text-base">비밀번호</Label>

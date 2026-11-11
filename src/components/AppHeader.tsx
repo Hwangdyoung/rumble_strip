@@ -1,10 +1,13 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
-import { LogOut } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { LogOut, UserRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AlertsBell } from "@/components/AlertsBell";
+import { StaffProfileDialog } from "@/components/StaffProfile";
+import { myStaffQuery } from "@/lib/queries";
+import { displayLoginId } from "@/lib/login-id";
 
 export function Logo() {
   return (
@@ -23,11 +26,8 @@ export function AppHeader() {
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [email, setEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
-  }, []);
+  const { data: me } = useQuery(myStaffQuery());
+  const [profileOpen, setProfileOpen] = useState(false);
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -46,13 +46,23 @@ export function AppHeader() {
         <nav className="flex items-center gap-2 sm:gap-3">
           <Link to="/dashboard" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>대시보드</Link>
           <Link to="/simulator" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>시뮬레이터</Link>
+          {me?.staff?.is_admin && (
+            <Link to="/admin" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>담당 관리</Link>
+          )}
           <AlertsBell />
-          {email && <span className="hidden text-sm text-muted-foreground lg:inline">{email}</span>}
+          {me?.staff ? (
+            <Button variant="ghost" size="sm" onClick={() => setProfileOpen(true)} aria-label="내 정보" className="text-muted-foreground">
+              <UserRound /> <span className="hidden lg:inline">{me.staff.name} · {me.staff.role}{me.staff.is_admin ? " · 관리자" : ""}</span>
+            </Button>
+          ) : (
+            me?.email && <span className="hidden text-sm text-muted-foreground lg:inline">{displayLoginId(me.email)}</span>
+          )}
           <Button variant="outline" size="sm" onClick={signOut}>
             <LogOut /> <span className="hidden sm:inline">로그아웃</span>
           </Button>
         </nav>
       </div>
+      <StaffProfileDialog open={profileOpen} onOpenChange={setProfileOpen} current={me?.staff ?? null} />
     </header>
   );
 }

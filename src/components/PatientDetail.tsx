@@ -16,6 +16,7 @@ import { suggestOutcome } from "@/lib/alert-outcome";
 import { Sparkles } from "lucide-react";
 import { CauseBadge, LevelBadge } from "@/components/LevelBadge";
 import { PlayCalendar } from "@/components/PlayCalendar";
+import { PatientStaffBadges } from "@/components/PatientStaffBadges";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -122,6 +123,7 @@ function PatientDetailContent({
           <p className="mt-1 text-muted-foreground">
             {patient.age}세 · 처방 시작 {patient.prescription_start_date} · {patient.prescription_weeks}주 / 주 {patient.weekly_target_days}회 / {patient.session_target_minutes}분
           </p>
+          <PatientStaffBadges patientId={patient.id} />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="text-right">

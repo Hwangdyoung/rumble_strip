@@ -108,6 +108,9 @@ function Simulator() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="space-y-5 rounded-2xl border bg-card p-5 shadow-card">
+          {patients.length === 0 && (
+            <p className="rounded-lg bg-muted px-3 py-2 text-sm">담당 환자가 없어 미리 볼 환자가 없습니다. 관리자에게 배정을 요청하세요.</p>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 space-y-2 sm:col-span-1">
               <Label htmlFor="patient" className="text-base">환자</Label>

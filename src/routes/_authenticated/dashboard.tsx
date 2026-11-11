@@ -248,7 +248,14 @@ function Dashboard() {
               <span>환자</span><span>위험 점수</span><span>단계</span><span>추정 원인</span><span>최근 접속</span><span>주요 이유</span><span />
             </div>
           )}
-          {rows.length === 0 && <p className="p-8 text-center text-muted-foreground">해당 조건의 환자가 없습니다.</p>}
+          {patients.length === 0 ? (
+            <div className="space-y-1 p-8 text-center">
+              <p className="font-semibold">담당 환자가 없습니다.</p>
+              <p className="text-muted-foreground">관리자에게 담당 환자 배정을 요청하세요. 배정되면 이 목록에 나타납니다.</p>
+            </div>
+          ) : (
+            rows.length === 0 && <p className="p-8 text-center text-muted-foreground">해당 조건의 환자가 없습니다.</p>
+          )}
           <ul className="divide-y">
             {rows.map((p) => (
               <li key={p.id}>

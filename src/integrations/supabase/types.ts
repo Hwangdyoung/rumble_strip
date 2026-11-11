@@ -116,6 +116,39 @@ export type Database = {
           },
         ]
       }
+      patient_staff: {
+        Row: {
+          created_at: string
+          patient_id: string
+          staff_id: string
+        }
+        Insert: {
+          created_at?: string
+          patient_id: string
+          staff_id: string
+        }
+        Update: {
+          created_at?: string
+          patient_id?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_staff_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_staff_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           age: number
@@ -234,12 +267,37 @@ export type Database = {
           },
         ]
       }
+      staff: {
+        Row: {
+          created_at: string
+          id: string
+          is_admin: boolean
+          name: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          is_admin?: boolean
+          name: string
+          role: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_admin?: boolean
+          name?: string
+          role?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_see_patient: { Args: { pid: string }; Returns: boolean }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
