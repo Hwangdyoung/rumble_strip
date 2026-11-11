@@ -15,8 +15,11 @@ AI는 진단·처방을 바꾸지 않는 참고용 보조 도구다. 모든 UI �
 - 2026-11-11: 점수 구성 카드·요약 근거 칩, 알림 결과 기록, 매일 점검 알림, 시뮬레이터 미리보기 전용화를 추가했다.
   관련 DB 변경 SQL은 사용자 Supabase에서 실행했고 컬럼이 생긴 것을 확인했다.
 - 2026-11-11: 사용자가 Vercel에 배포했다(`https://rumble-strip.vercel.app`, 로그인·대시보드·매일 점검 동작을 화면으로 확인).
-  저장소에는 Vercel 설정 파일이 없고, 설정은 Vercel 대시보드에 있다.
-  GitHub `main` push 시 자동 배포되는지, Vercel 환경 변수에 무엇이 등록됐는지는 확인하지 않았다.
+  GitHub `main`에 push하면 Vercel이 자동 배포한다(확인함). 빌드가 실패하면 직전 정상 배포가 계속 서비스된다.
+  Vercel 환경 변수(Production): `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_URL`,
+  `SUPABASE_SERVICE_ROLE_KEY`(Secret), `CRON_SECRET`(Secret). `ANTHROPIC_API_KEY`, `SUPABASE_PUBLISHABLE_KEY`는
+  없어서 배포 사이트의 AI 요약은 규칙 기반으로 나올 것(추정).
+  `CRON_SECRET` 값 끝에 줄바꿈이 있으면 Vercel 빌드가 실패한다(`openssl rand -hex 24 | tr -d '\n' | pbcopy`로 만들 것).
 - 저장소는 비공개였고, 조원에게 보여주려고 공개 또는 Collaborator 초대를 검토했다(실제 설정은 사용자가 GitHub에서 함).
 
 ## 실행
@@ -65,7 +68,10 @@ npm run format  # prettier
   `runDailyCheck`(로그인 사용자 클라이언트), Cron은 `src/routes/api/daily-check.ts`(관리자 클라이언트)로 같은 함수를 쓴다.
 - `src/routes/api/daily-check.ts`: Vercel Cron이 부르는 서버 주소(GET). `CRON_SECRET` 확인 후 실행, 아니면 401.
   관리자 클라이언트(`client.server.ts`)는 핸들러 안에서 동적 import한다.
-- `vercel.json`: Cron 설정. 매일 `0 0 * * *`(UTC 0시 = 한국 9시대, 무료 플랜은 그 시간 안 아무 때나 실행).
+- Cron 설정은 `vite.config.ts`의 `nitro.vercel.config.crons`에 있다. 매일 `0 0 * * *`(UTC 0시 = 한국 9시대,
+  무료 플랜은 그 시간 안 아무 때나 실행). Nitro가 `.vercel/output/config.json`을 직접 만들어서 `vercel.json`의
+  crons는 적용되지 않는다(처음에 vercel.json으로 했다가 Cron이 등록되지 않아 옮김).
+  확인: `NITRO_PRESET=vercel npm run build` 후 `.vercel/output/config.json`의 `crons`.
 - `src/lib/alert-outcome.ts`: 알림 결과 집계(`outcomeStats`)와 '회복' 제안(`suggestOutcome`, 알림 후 7일 안 플레이 기록).
   제안은 문구로만 보여주고 자동 저장하지 않는다.
 - `src/lib/calendar.ts`: 캘린더 표시용 집계. 위험 계산은 risk.ts에 맡긴다.
@@ -153,9 +159,9 @@ npm run format  # prettier
 - Anthropic 크레딧 충전 여부 결정
 - Lovable 쪽 GitHub 연결 해제 확인, 새 Supabase에서 안정 확인 후 Lovable DB 정리
   (Lovable 미리보기 링크가 과제 노션에 걸려 있으니 채점 후)
-- Vercel 배포 확인: GitHub `main` 자동 배포 여부, 환경 변수 등록 여부(`ANTHROPIC_API_KEY`는 `VITE_` 없이 서버 변수로)
-- Vercel Cron 활성화 확인(2026-11-11 코드 추가): Vercel 환경 변수 `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`,
-  `SUPABASE_URL` 등록 → Redeploy → Cron 수동 실행 또는 주소 호출로 확인. Vercel 문서상 Cron Jobs는 'Schedules'로
+- 배포 사이트 AI 요약용 환경 변수(`ANTHROPIC_API_KEY`, `SUPABASE_PUBLISHABLE_KEY`)는 크레딧 충전 때 함께 등록
+- Vercel Cron 동작 확인: Settings → Cron Jobs에 `/api/daily-check`가 보이는지, Run 결과가 200인지.
+  배포 주소를 비밀 값 없이 부르면 401이 나오는 것은 확인함(2026-11-11). Vercel 문서상 Cron Jobs는 'Schedules'로
   옮겨질 예정인 기능이다
 - 예전 시뮬레이터가 실제로 저장한 play_logs·risk_scores 정리 여부 결정(삭제는 사용자 확인 후).
   2026-11-11 기준 alerts는 매일 점검이 만든 3건뿐이었다. play_logs·risk_scores는 확인하지 않았다
