@@ -278,7 +278,7 @@ function AlertSettingsForm() {
 
 function DataSection() {
   const [busy, setBusy] = useState(false);
-  // 상담원은 DB에서 알림을 읽을 수 없어(SQL 009) CSV가 빈 파일이 된다. 버튼 대신 안내만 보여 준다.
+  // 상담원은 DB에서 알림을 읽을 수 없어(SQL 009) 통계는 0건, CSV는 빈 파일이 된다. 통계는 숨기고 CSV 자리에 안내만 보여 준다.
   const { data: me, isSuccess: meReady } = useQuery(myStaffQuery());
   const clinical = canSeeClinical(me?.staff);
   async function exportCsv() {
@@ -317,9 +317,11 @@ function DataSection() {
 
   return (
     <>
-    <Block title="알림 결과 통계" description="'새로 나빠짐' 이후 기록한 결과(회복·이탈·연락 불가)를 모은 것입니다. 점수 기준이 맞는지 확인하는 데 씁니다.">
-      <AlertOutcomeSummary embedded />
-    </Block>
+    {meReady && clinical && (
+      <Block title="알림 결과 통계" description="'새로 나빠짐' 이후 기록한 결과(회복·이탈·연락 불가)를 모은 것입니다. 점수 기준이 맞는지 확인하는 데 씁니다.">
+        <AlertOutcomeSummary embedded />
+      </Block>
+    )}
     <Block
       title="알림 결과 내보내기 (CSV)"
       description="볼 수 있는 환자의 알림과 기록한 결과(회복·이탈·연락 불가)를 엑셀에서 열 수 있는 파일로 받습니다. 점수 기준이 맞는지 검증할 때 씁니다."
