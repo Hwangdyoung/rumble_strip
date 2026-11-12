@@ -62,7 +62,13 @@ function buildUserPrompt(input: AiSummaryInput): string {
 export const fetchAiSummary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: unknown) => data as AiSummaryInput)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // 상담원은 AI 경과 요약(치료 경과 정보)을 받지 않는다 (역할별 접근, SQL 009)
+    const { data: me } = await context.supabase.from("staff").select("role, is_admin").eq("id", context.userId).maybeSingle();
+    if (!me || !(me.is_admin || me.role === "의사" || me.role === "간호사")) {
+      throw new Error("AI 경과 요약은 의료진만 볼 수 있습니다.");
+    }
+
     // @anthropic-ai/sdk 는 핸들러 body 안에서만 동적 import — 서버 번들에만 포함됨
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
 

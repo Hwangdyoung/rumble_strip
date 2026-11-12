@@ -5,7 +5,9 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { completeFollowUps, createFollowUp, myStaffQuery, patientDetailQuery, staffListQuery } from "@/lib/queries";
+import { completeFollowUps, createFollowUp, myStaffQuery, patientDetailQuery, recordContact, staffListQuery } from "@/lib/queries";
+import { canSeeClinical } from "@/lib/roles";
+import { CounselorPatientDetail } from "@/components/CounselorPatientDetail";
 import { asOfFor, computeRisk, riskHistory, weeklySummary, summaryEvidence, CAUSE_ACTION, RISK_CONFIG, toDateKey } from "@/lib/risk";
 import type { RiskLevel, RiskResult } from "@/lib/risk";
 import type { CalendarLog } from "@/lib/calendar";
@@ -51,6 +53,14 @@ function Card({ title, children, className }: { title: string; children: React.R
 }
 
 export function PatientDetail({ id, panel = false }: { id: string; panel?: boolean }) {
+  // 역할별 화면: 상담원은 서버가 골라 보낸 정보만 쓰는 화면 (SQL 009에서 원본·점수·알림을 DB가 막음)
+  const me = useQuery(myStaffQuery());
+  if (me.isPending) return <p className="py-12 text-center text-muted-foreground" role="status">환자 정보를 불러오는 중…</p>;
+  if (!canSeeClinical(me.data?.staff)) return <CounselorPatientDetail id={id} panel={panel} />;
+  return <ClinicalPatientDetail id={id} panel={panel} />;
+}
+
+function ClinicalPatientDetail({ id, panel }: { id: string; panel: boolean }) {
   const { data, isPending, isError, refetch } = useQuery(patientDetailQuery(id));
   if (isPending) return <p className="py-12 text-center text-muted-foreground" role="status">환자 정보를 불러오는 중…</p>;
   if (isError) return <div className="space-y-4 py-12 text-center"><p>환자 정보를 불러오지 못했습니다.</p><Button variant="outline" onClick={() => refetch()}>다시 시도</Button></div>;
@@ -492,7 +502,7 @@ function ScoreComposition({ risk }: { risk: RiskResult }) {
 }
 
 /** 이 환자의 다음 연락 예정 (완료 처리 가능) */
-function FollowUpList({ patientId, items }: { patientId: string; items: Array<{ id: string; due_date: string; assignee_id: string | null; note: string }> }) {
+export function FollowUpList({ patientId, items }: { patientId: string; items: Array<{ id: string; due_date: string; assignee_id: string | null; note: string }> }) {
   const qc = useQueryClient();
   const { data: staff = [] } = useQuery(staffListQuery());
   const m = useMutation({
@@ -533,17 +543,20 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
-type ActionPreset = { type: (typeof ACTION_TYPES)[number]; memo: string };
+export type ActionPreset = { type: (typeof ACTION_TYPES)[number]; memo: string };
 
-function ActionDialog({
+export function ActionDialog({
   patientId,
   open: openProp,
   onOpenChange,
   preset,
   level,
   openFollowUps = [],
+  limited = false,
 }: {
   patientId: string;
+  /** 상담원: 알림을 직접 읽지 못하므로 DB 함수 record_contact로 기록 */
+  limited?: boolean;
   /** 다음 연락 예정일 기본값을 정하는 데 씀 */
   level: RiskLevel;
   /** 이 환자의 열린 다음 연락 일정 */
@@ -575,6 +588,12 @@ function ActionDialog({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("로그인이 필요합니다.");
+      if (limited) {
+        const alertId = await recordContact(patientId, type, memo);
+        if (completeOpen) await completeFollowUps(openFollowUps.map((f) => f.id));
+        if (nextDate) await createFollowUp({ patientId, alertId, dueDate: nextDate, assigneeId: u.user.id });
+        return;
+      }
       const { data: open } = await supabase.from("alerts").select("id").eq("patient_id", patientId).neq("status", "조치완료").order("created_at", { ascending: false });
       const { error } = await supabase.from("actions").insert({ patient_id: patientId, action_type: type, memo, staff_id: u.user.id, alert_id: open?.[0]?.id ?? null });
       if (error) throw error;

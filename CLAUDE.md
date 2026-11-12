@@ -125,7 +125,7 @@ npm run format  # prettier
   - `alerts`: `assignee_id`(→ staff), `assigned_at`, `resolved_at` / `patient_staff`: `is_contact`(환자당 1명, 관리자만 변경) (2026-11-12)
   - `alert_handoffs`(넘긴 기록, 007부터 alert_id 비어 있을 수 있음), `follow_ups`(다음 연락 일정) (2026-11-12, 006·007)
 - 손으로 실행한 SQL은 `supabase/manual-sql/`에 번호 순서로 둔다(001 알림 결과, 002 매일 점검, 003 담당 환자 RLS와
-  되돌리기·시험 SQL, 004 관리자 아이디, 005 알림 담당자, 006 넘기기·다음 연락, 007 환자 단위 맡기·넘기기, 008 담당자별 업무량). DB를 새로 만들 때 마이그레이션 다음에 이 순서대로 실행한다.
+  되돌리기·시험 SQL, 004 관리자 아이디, 005 알림 담당자, 006 넘기기·다음 연락, 007 환자 단위 맡기·넘기기, 008 담당자별 업무량, 009 역할별 접근). DB를 새로 만들 때 마이그레이션 다음에 이 순서대로 실행한다.
 - RLS(003 이후): 관리자(`is_admin()`)는 전체, 그 외에는 `patient_staff`로 연결된 환자만(`can_see_patient()`).
   - patients·play_logs: 읽기는 관리자·담당자, 쓰기는 관리자만
   - risk_scores·alerts: 담당자도 추가(대시보드 매일 점검)·알림 상태와 결과 기록 가능, 삭제는 관리자
@@ -218,3 +218,16 @@ npm run format  # prettier
 - 예전 상태가 남은 문서·설정 확인: `supabase/config.toml`의 `project_id`가 `.env`의 새 프로젝트와 다름,
   `README.md`는 Lovable 템플릿 그대로, `AGENTS.md` 본문의 "staff-only RLS" 설명은 003 이후 담당 환자 기준과 다름,
   `prompts.md`의 시뮬레이터 설명(재계산·알림 생성)은 지금과 다름
+
+## 역할별 접근 제한 (2026-11-12 코드 완료, push·SQL 009 실행 전)
+- 상담원(의료인 아님)은 연락 업무에 필요한 정보만 본다. 의사·간호사·관리자 화면은 그대로. 판단은 `src/lib/roles.ts`의 `canSeeClinical`.
+- DB(SQL 009): 상담원은 play_logs·risk_scores·alerts를 직접 못 읽음(알림 문구에 정확도 등 수치가 있어서). 역할은 관리자만 바꾸고
+  새 가입자는 '상담원'으로 시작(`saveMyStaff`는 이름만). 상담원도 쓰는 DB 함수: `record_contact`, `mark_alert_seen`, `set_contact_outcome`(미정·연락 불가만).
+- 상담원 화면 데이터는 서버 함수 `src/lib/counselor-view.server.ts`(목록·종 알림·환자 상세)가 만든다. 사용자 권한으로 담당 환자를 확인한 뒤
+  그 환자들의 play_logs·alerts만 관리자 클라이언트로 읽어 서버에서 risk.ts로 계산하고, 단계·접속 관련 이유(`counselorReasons`)·접속한 날짜·
+  연락 도우미 문장·단계만 담은 알림을 보낸다. 점수·정확도·반응 속도·세션 시간·저장된 알림 문구는 보내지 않는다.
+- 상담원 화면: 환자 상세 `CounselorPatientDetail.tsx`(탭: 연락 도우미·접속 캘린더 `AttendanceCalendar.tsx`·연락 이력), 대시보드 목록은 점수 없이,
+  매일 점검·시뮬레이터·AI 요약 없음(AI 요약 서버 함수도 거절). 알림 결과는 미정·연락 불가만.
+- 남은 빈틈: 보호자 안내문(인쇄)에 주별 평균 사용 시간이 들어감(보호자용 정보라 허용), 연락 기록 메모는 상담원도 봄,
+  프로필 메뉴의 '내 알림' 수는 상담원에게 0으로 보일 수 있음.
+- 순서: Vercel `SUPABASE_PUBLISHABLE_KEY` 추가 → 코드 push → SQL 009 실행 → `003_staff_rls_test.sql`(17~25번) → 상담원 계정으로 화면 확인.

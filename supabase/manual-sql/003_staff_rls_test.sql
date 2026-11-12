@@ -7,7 +7,7 @@ declare
   res text := '';
   admin_id uuid;
   fake uuid := gen_random_uuid();
-  p1 uuid; p2 uuid; p3 uuid; pa uuid; pa_alerts int; pa_alert uuid;
+  p1 uuid; p2 uuid; p3 uuid; p4 uuid; pa uuid; pa_alerts int; pa_alert uuid;
   n int; total int;
   claims text;
 begin
@@ -22,6 +22,8 @@ begin
     select patient_id into pa from public.alerts where patient_id not in (p1, p2) limit 1;
     select count(*) into pa_alerts from public.alerts where patient_id = pa;
     select id into pa_alert from public.alerts where patient_id = pa limit 1;
+    -- 25번 시험용: p1·p2·pa가 아닌 환자
+    select id into p4 from public.patients where id not in (p1, p2) and id is distinct from pa order by name limit 1;
 
     -- 1) 관리자: 전체 환자
     perform set_config('request.jwt.claims', json_build_object('sub', admin_id, 'role', 'authenticated')::text, true);
@@ -40,7 +42,7 @@ begin
 
     -- 3) 환자 2명을 담당하는 일반 계정 (관리자 계정을 잠시 일반 계정으로 바꿔서 시험)
     execute 'reset role';
-    update public.staff set is_admin = false where id = admin_id;
+    update public.staff set is_admin = false, role = '의사' where id = admin_id;
     delete from public.patient_staff where staff_id = admin_id;
     insert into public.patient_staff (patient_id, staff_id) values (p1, admin_id), (p2, admin_id);
     perform set_config('request.jwt.claims', json_build_object('sub', admin_id, 'role', 'authenticated')::text, true);
@@ -164,6 +166,75 @@ begin
       res := res || format('16. 등록 안 된 계정의 업무량: %s줄 (기대: 0)', n) || E'\n';
     exception when others then
       res := res || format('16. 업무량 함수: 실패 (008 실행 전이면 정상, 코드 %s)', sqlstate) || E'\n';
+    end;
+
+    -- 17~22) 상담원 (009 이후): 같은 계정을 잠시 상담원으로 바꿔서 시험. 담당 환자는 p1, p2
+    execute 'reset role';
+    update public.staff set role = '상담원' where id = admin_id;
+    perform set_config('request.jwt.claims', json_build_object('sub', admin_id, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    select count(*) into n from public.patients;
+    res := res || format('17. 상담원: 담당 환자 %s명 보임 (기대: 2)', n) || E'\n';
+    select count(*) into n from public.play_logs;
+    res := res || format('18. 상담원: 플레이 원본 %s건 (기대: 0, 009 실행 전이면 0보다 큼)', n) || E'\n';
+    select count(*) into n from public.risk_scores;
+    res := res || format('19. 상담원: 위험 점수 기록 %s건 (기대: 0)', n) || E'\n';
+    select count(*) into n from public.alerts;
+    res := res || format('20. 상담원: 알림 %s건 (기대: 0)', n) || E'\n';
+
+    -- 21) 상담원이 스스로 역할 바꾸기
+    begin
+      update public.staff set role = '의사' where id = admin_id;
+      get diagnostics n = row_count;
+      if n = 0 then
+        res := res || '21. 상담원이 스스로 의사로 바꾸기: 막힘 (기대대로, 0건)' || E'\n';
+      else
+        res := res || '21. 상담원이 스스로 의사로 바꾸기: 막히지 않음 (문제, 009 실행 전이면 정상)' || E'\n';
+      end if;
+    exception when others then
+      res := res || format('21. 상담원이 스스로 의사로 바꾸기: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
+    end;
+
+    -- 22) 상담원이 알림 결과 '회복' 기록 / 23) '연락 불가' 기록 / 24) 연락 기록
+    if pa is null then
+      res := res || '22~24. 알림 결과·연락 기록: 시험할 알림이 없음' || E'\n';
+    else
+      execute 'reset role';
+      insert into public.patient_staff (patient_id, staff_id) values (pa, admin_id);
+      execute 'set local role authenticated';
+      begin
+        perform public.set_contact_outcome(pa_alert, '회복', null);
+        res := res || '22. 상담원이 결과 회복 기록: 막히지 않음 (문제)' || E'\n';
+      exception when others then
+        res := res || format('22. 상담원이 결과 회복 기록: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
+      end;
+      begin
+        perform public.set_contact_outcome(pa_alert, '연락 불가', '시험');
+        execute 'reset role';
+        select count(*) into n from public.alerts where id = pa_alert and outcome = '연락 불가';
+        execute 'set local role authenticated';
+        res := res || format('23. 상담원이 결과 연락 불가 기록: %s건 기록됨 (기대: 1, 이미 회복·이탈이면 0)', n) || E'\n';
+      exception when others then
+        res := res || format('23. 상담원이 결과 연락 불가 기록: 실패 (코드 %s, 이미 회복·이탈이면 기대대로)', sqlstate) || E'\n';
+      end;
+      begin
+        perform public.record_contact(pa, '전화 상담', '권한시험');
+        execute 'reset role';
+        select count(*) into n from public.actions where patient_id = pa and memo = '권한시험';
+        select count(*) into total from public.alerts where patient_id = pa and status <> '조치완료';
+        execute 'set local role authenticated';
+        res := res || format('24. 상담원 연락 기록: 조치 %s건, 남은 처리 안 된 알림 %s건 (기대: 1, 0)', n, total) || E'\n';
+      exception when others then
+        res := res || format('24. 상담원 연락 기록: 실패 (문제, 코드 %s)', sqlstate) || E'\n';
+      end;
+    end if;
+
+    -- 25) 담당 아닌 환자 연락 기록
+    begin
+      perform public.record_contact(p4, '기타', '권한시험');
+      res := res || '25. 담당 아닌 환자 연락 기록: 막히지 않음 (문제)' || E'\n';
+    exception when others then
+      res := res || format('25. 담당 아닌 환자 연락 기록: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
     end;
 
     -- 여기까지의 변경을 모두 되돌리기 위해 일부러 예외를 낸다 (결과 문장을 함께 실어 보냄)

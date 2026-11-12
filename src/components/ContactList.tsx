@@ -72,7 +72,7 @@ export function ContactList({
               <>
                 <span className="justify-self-end md:justify-self-start">
                   <LevelBadge level={r.level} />
-                  <span className="ml-1.5 text-sm tabular-nums text-muted-foreground">{r.score}</span>
+                  {r.score !== null && <span className="ml-1.5 text-sm tabular-nums text-muted-foreground">{r.score}</span>}
                 </span>
                 <span className="col-span-2 flex items-center gap-2 md:col-span-1">
                   <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", STATUS_STYLE[r.status])}>{statusLabel(r)}</span>

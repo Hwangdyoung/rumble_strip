@@ -438,6 +438,11 @@ export type Database = {
       can_see_patient: { Args: { pid: string }; Returns: boolean }
       handoff_patient: { Args: { pid: string; to_staff: string; reason: string; note?: string }; Returns: undefined }
       is_admin: { Args: never; Returns: boolean }
+      is_clinician: { Args: never; Returns: boolean }
+      mark_alert_seen: { Args: { aid: string }; Returns: undefined }
+      my_role: { Args: never; Returns: string }
+      record_contact: { Args: { pid: string; kind: string; memo?: string }; Returns: string | null }
+      set_contact_outcome: { Args: { aid: string; outcome: string; note?: string | null }; Returns: undefined }
       staff_workload: {
         Args: never
         Returns: {

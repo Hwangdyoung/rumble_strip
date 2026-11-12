@@ -14,7 +14,20 @@ const when = (iso: string) => new Date(iso).toLocaleString("ko-KR", { month: "nu
  * 환자 상세 '연락 이력': 새로 나빠짐(알림), 연락 기록(조치), 넘긴 기록을 시간 순(최신 먼저)으로 한 줄씩.
  * 새로 나빠짐 줄에서 그 뒤 결과(회복·이탈·연락 불가)를 기록한다(점수 검증용).
  */
-export function ContactHistory({ patientId, alerts, actions, logs }: { patientId: string; alerts: AlertItem[]; actions: ActionItem[]; logs: CalendarLog[] }) {
+export function ContactHistory({
+  patientId,
+  alerts,
+  actions,
+  logs,
+  limited = false,
+}: {
+  patientId: string;
+  alerts: AlertItem[];
+  actions: ActionItem[];
+  logs: CalendarLog[];
+  /** 상담원: 결과는 미정·연락 불가만, '회복' 제안 없음 */
+  limited?: boolean;
+}) {
   const { data: handoffs = [] } = useQuery(alertHandoffsQuery(patientId));
   const { data: staff = [] } = useQuery(staffListQuery());
   const name = (id: string | null | undefined) => (id ? (staff.find((s) => s.id === id)?.name ?? "알 수 없음") : "알 수 없음");
@@ -47,7 +60,8 @@ export function ContactHistory({ patientId, alerts, actions, logs }: { patientId
                   patientId={patientId}
                   outcome={it.a.outcome}
                   note={it.a.outcome_note}
-                  suggestion={it.a.outcome === "미정" ? suggestOutcome(it.a.created_at, logs) : null}
+                  suggestion={!limited && it.a.outcome === "미정" ? suggestOutcome(it.a.created_at, logs) : null}
+                  limited={limited}
                   compact
                 />
               </>

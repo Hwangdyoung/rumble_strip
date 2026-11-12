@@ -29,7 +29,8 @@ export interface ContactRow {
   name: string;
   age: number;
   level: RiskLevel;
-  score: number;
+  /** 위험 점수 (상담원 화면에서는 null: 점수를 보내지 않음) */
+  score: number | null;
   reason: string;
   /** 처리 안 된 '새로 나빠짐' 알림이 있으면 그 시각 */
   newWorseAt: string | null;
@@ -116,7 +117,7 @@ export function buildContactList(input: ContactInput): ContactRow[] {
       Number(b.needsAction) - Number(a.needsAction) ||
       Number(Boolean(b.newWorseAt)) - Number(Boolean(a.newWorseAt)) ||
       LEVEL_RANK[a.level] - LEVEL_RANK[b.level] ||
-      b.score - a.score,
+      (b.score ?? 0) - (a.score ?? 0),
   );
 }
 

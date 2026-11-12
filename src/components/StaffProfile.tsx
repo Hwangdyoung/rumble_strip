@@ -5,22 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { myStaffQuery, saveMyStaff, STAFF_ROLES, type Staff, type StaffRole } from "@/lib/queries";
+import { myStaffQuery, saveMyStaff, type Staff } from "@/lib/queries";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
-/** 내 정보(이름·역할) 입력 폼. 설정 화면과 첫 로그인 창에서 함께 쓴다. */
+/** 내 정보(이름) 입력 폼. 설정 화면과 첫 로그인 창에서 함께 쓴다. 역할은 관리자가 정한다(보기만). */
 export function StaffProfileForm({ current, onSaved, autoFocus = false }: { current: Staff | null; onSaved?: () => void; autoFocus?: boolean }) {
   const qc = useQueryClient();
   const [name, setName] = useState(current?.name ?? "");
-  const [role, setRole] = useState<StaffRole>((current?.role as StaffRole) ?? "의사");
   useEffect(() => {
     setName(current?.name ?? "");
-    setRole((current?.role as StaffRole) ?? "의사");
   }, [current]);
 
   const m = useMutation({
-    mutationFn: () => saveMyStaff(name.trim(), role),
+    mutationFn: () => saveMyStaff(name.trim()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["me"] });
       qc.invalidateQueries({ queryKey: ["staff"] });
@@ -31,7 +29,7 @@ export function StaffProfileForm({ current, onSaved, autoFocus = false }: { curr
     onError: () => toast.error("저장하지 못했습니다. 다시 시도해 주세요."),
   });
   const valid = name.trim().length >= 1 && name.trim().length <= 40;
-  const changed = !current || name.trim() !== current.name || role !== current.role;
+  const changed = !current || name.trim() !== current.name;
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -44,23 +42,12 @@ export function StaffProfileForm({ current, onSaved, autoFocus = false }: { curr
         <Label htmlFor="staff-name" className="text-base">이름</Label>
         <Input id="staff-name" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="예: 김하늘" className="h-11 text-base" autoFocus={autoFocus} />
       </div>
-      <div className="space-y-2">
-        <Label className="text-base">역할</Label>
-        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="역할">
-          {STAFF_ROLES.map((r) => (
-            <Button
-              key={r}
-              type="button"
-              variant="outline"
-              role="radio"
-              aria-checked={role === r}
-              onClick={() => setRole(r)}
-              className={cn("h-11", role === r && "border-primary bg-secondary ring-2 ring-primary")}
-            >
-              {r}
-            </Button>
-          ))}
-        </div>
+      <div className="space-y-1">
+        <p className="text-base font-medium">역할</p>
+        <p className="text-base">{current ? `${current.role}${current.is_admin ? " · 관리자" : ""}` : "상담원 (처음 시작)"}</p>
+        <p className="text-sm text-muted-foreground">
+          역할은 관리자가 '담당 관리'에서 정합니다. 역할에 따라 볼 수 있는 정보가 다릅니다(상담원은 연락 업무에 필요한 정보만).
+        </p>
       </div>
       <div className="flex justify-end">
         <Button type="submit" className="h-11" disabled={!valid || !changed || m.isPending}>

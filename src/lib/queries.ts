@@ -5,6 +5,7 @@ import { koreaNow } from "./daily-check";
 import { runDailyCheckWith } from "./daily-check-run";
 import { suggestOutcome, type AlertOutcome } from "./alert-outcome";
 import type { Workload } from "./workload";
+import { fetchCounselorAlerts, fetchCounselorBoard, fetchCounselorPatient } from "./counselor-view.server";
 
 export const patientsOverviewQuery = () =>
   queryOptions({
@@ -170,15 +171,18 @@ export const assignmentsQuery = () =>
     },
   });
 
-/** 내 정보 저장 (처음이면 만들고, 있으면 이름·역할만 고침. 관리자 여부는 바꾸지 않음) */
-export async function saveMyStaff(name: string, role: StaffRole) {
+/**
+ * 내 정보 저장: 처음이면 만들고(역할은 '상담원'으로 시작), 있으면 이름만 고침.
+ * 역할과 관리자 여부는 관리자만 '담당 관리'에서 바꾼다 (DB 규칙 SQL 009).
+ */
+export async function saveMyStaff(name: string) {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) throw new Error("로그인이 필요합니다.");
   const { data: existing, error: e1 } = await supabase.from("staff").select("id").eq("id", u.user.id).maybeSingle();
   if (e1) throw e1;
   const { error } = existing
-    ? await supabase.from("staff").update({ name, role }).eq("id", u.user.id)
-    : await supabase.from("staff").insert({ id: u.user.id, name, role });
+    ? await supabase.from("staff").update({ name }).eq("id", u.user.id)
+    : await supabase.from("staff").insert({ id: u.user.id, name, role: "상담원" });
   if (error) throw error;
 }
 
@@ -385,3 +389,47 @@ export const contactListQuery = () =>
     },
     refetchInterval: 60_000,
   });
+
+// ─── 상담원 (SQL 009): 점수·플레이 원본·알림을 직접 읽지 못해서 서버 함수와 DB 함수로 처리 ─────────────
+
+/** 상담원 대시보드 목록 (점수 없음, 접속 관련 이유만) */
+export const counselorBoardQuery = (threshold: number) =>
+  queryOptions({
+    queryKey: ["alerts", "counselor-board", threshold],
+    queryFn: () => fetchCounselorBoard({ data: { threshold } }),
+    refetchInterval: 60_000,
+  });
+
+/** 상담원 종 아이콘 알림 (단계만 담은 문구) */
+export const counselorAlertsQuery = () =>
+  queryOptions({
+    queryKey: ["alerts", "counselor"],
+    queryFn: () => fetchCounselorAlerts(),
+    refetchInterval: 30_000,
+  });
+
+/** 상담원 환자 상세 */
+export const counselorPatientQuery = (id: string) =>
+  queryOptions({
+    queryKey: ["patient", id, "counselor"],
+    queryFn: () => fetchCounselorPatient({ data: { patientId: id } }),
+  });
+
+/** 연락 기록: 조치를 남기고 처리 안 된 알림을 조치완료로 (DB 함수 record_contact). 연결한 알림 id를 돌려줌 */
+export async function recordContact(patientId: string, kind: string, memo: string) {
+  const { data, error } = await supabase.rpc("record_contact", { pid: patientId, kind, memo });
+  if (error) throw error;
+  return data ?? null;
+}
+
+/** 알림을 봤음으로 표시 (DB 함수 mark_alert_seen) */
+export async function markAlertSeen(alertId: string) {
+  const { error } = await supabase.rpc("mark_alert_seen", { aid: alertId });
+  if (error) throw error;
+}
+
+/** 알림 결과 '미정'·'연락 불가'만 기록 (DB 함수 set_contact_outcome, 상담원용) */
+export async function setContactOutcome(alertId: string, outcome: "미정" | "연락 불가", note?: string | null) {
+  const { error } = await supabase.rpc("set_contact_outcome", { aid: alertId, outcome, note: note === undefined ? null : (note ?? "") });
+  if (error) throw error;
+}

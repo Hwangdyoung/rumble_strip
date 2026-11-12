@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { AlertsBell } from "@/components/AlertsBell";
 import { myStaffQuery, patientsOverviewQuery, worklistQuery } from "@/lib/queries";
 import { displayLoginId } from "@/lib/login-id";
+import { canSeeClinical } from "@/lib/roles";
 
 export function Logo() {
   return (
@@ -44,7 +45,9 @@ export function AppHeader() {
         </Link>
         <nav className="flex items-center gap-2 sm:gap-3">
           <Link to="/dashboard" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>대시보드</Link>
-          <Link to="/simulator" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>시뮬레이터</Link>
+          {canSeeClinical(me?.staff) && (
+            <Link to="/simulator" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>시뮬레이터</Link>
+          )}
           {me?.staff?.is_admin && (
             <Link to="/admin" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>담당 관리</Link>
           )}

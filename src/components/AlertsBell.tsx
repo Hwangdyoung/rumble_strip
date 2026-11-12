@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
 import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { alertsQuery, setAlertStatus } from "@/lib/queries";
+import { alertsQuery, counselorAlertsQuery, markAlertSeen, myStaffQuery, setAlertStatus } from "@/lib/queries";
+import { canSeeClinical } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -14,16 +15,25 @@ export const alertStatusStyle: Record<string, string> = {
   조치완료: "bg-level-normal-soft text-level-normal",
 };
 
+type BellAlert = { id: string; patient_id: string; status: string; message: string; created_at: string; name: string | null };
+
 export function AlertsBell() {
-  const { data: alerts = [] } = useQuery(alertsQuery());
+  // 상담원은 알림을 DB에서 직접 읽지 못한다(SQL 009): 서버 함수가 단계만 담은 문구로 보내 준다
+  const { data: me, isSuccess: meReady } = useQuery(myStaffQuery());
+  const clinical = canSeeClinical(me?.staff);
+  const full = useQuery({ ...alertsQuery(), enabled: meReady && clinical });
+  const limited = useQuery({ ...counselorAlertsQuery(), enabled: meReady && Boolean(me?.staff) && !clinical });
+  const alerts: BellAlert[] = clinical
+    ? (full.data ?? []).map((a) => ({ id: a.id, patient_id: a.patient_id, status: a.status, message: a.message, created_at: a.created_at, name: a.patients?.name ?? null }))
+    : (limited.data ?? []).map((a) => ({ id: a.id, patient_id: a.patient_id, status: a.status, message: a.message, created_at: a.created_at, name: a.patient_name }));
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const unread = alerts.filter((a) => a.status === "미확인").length;
 
-  async function openAlert(a: (typeof alerts)[number]) {
+  async function openAlert(a: BellAlert) {
     try {
-      if (a.status === "미확인") await setAlertStatus(a.id, "확인");
+      if (a.status === "미확인") await (clinical ? setAlertStatus(a.id, "확인") : markAlertSeen(a.id));
     } catch {
       toast.error("알림 상태를 바꾸지 못했습니다. 다시 시도해 주세요.");
       return;
@@ -57,7 +67,7 @@ export function AlertsBell() {
             <li key={a.id} className={cn(a.status === "미확인" && "bg-secondary")}>
               <Button variant="ghost" onClick={() => openAlert(a)} className="block h-auto w-full whitespace-normal rounded-none px-4 py-3 text-left font-normal hover:bg-muted">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold">{a.patients?.name}</span>
+                  <span className="font-semibold">{a.name}</span>
                   {a.status === "미확인" ? (
                     <span className="rounded-full bg-level-risk-soft px-2 py-0.5 text-xs font-semibold text-level-risk">새로</span>
                   ) : a.status === "조치완료" ? (

@@ -3,7 +3,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { alertOutcomesQuery, setAlertOutcome } from "@/lib/queries";
+import { alertOutcomesQuery, setAlertOutcome, setContactOutcome } from "@/lib/queries";
+import { LIMITED_OUTCOMES } from "@/lib/roles";
 import { ALERT_OUTCOMES, outcomeStats, type AlertOutcome, type OutcomeSuggestion } from "@/lib/alert-outcome";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ export function AlertOutcomePicker({
   suggestion,
   withNote = false,
   compact = false,
+  limited = false,
 }: {
   alertId: string;
   patientId: string;
@@ -34,11 +36,14 @@ export function AlertOutcomePicker({
   suggestion: OutcomeSuggestion | null;
   withNote?: boolean;
   compact?: boolean;
+  /** 상담원: 미정·연락 불가만 (DB 함수 set_contact_outcome) */
+  limited?: boolean;
 }) {
   const qc = useQueryClient();
   const [memo, setMemo] = useState(note ?? "");
   const m = useMutation({
-    mutationFn: (v: { outcome: AlertOutcome; note?: string }) => setAlertOutcome(alertId, v.outcome, v.note),
+    mutationFn: (v: { outcome: AlertOutcome; note?: string }) =>
+      limited ? setContactOutcome(alertId, v.outcome as "미정" | "연락 불가", v.note) : setAlertOutcome(alertId, v.outcome, v.note),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["patient", patientId] });
       qc.invalidateQueries({ queryKey: ["alerts"] });
@@ -52,7 +57,7 @@ export function AlertOutcomePicker({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-1" role="group" aria-label="알림 결과">
         <span className={cn("mr-1 font-medium text-muted-foreground", compact ? "text-xs" : "text-sm")}>결과</span>
-        {ALERT_OUTCOMES.map((o) => (
+        {(limited ? (LIMITED_OUTCOMES as readonly AlertOutcome[]) : ALERT_OUTCOMES).map((o) => (
           <Button
             variant="outline"
             key={o}

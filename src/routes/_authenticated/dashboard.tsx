@@ -4,7 +4,8 @@ import { z } from "zod";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Printer } from "lucide-react";
-import { contactListQuery, myStaffQuery, patientsOverviewQuery, staffListQuery } from "@/lib/queries";
+import { contactListQuery, counselorBoardQuery, myStaffQuery, patientsOverviewQuery, staffListQuery } from "@/lib/queries";
+import { canSeeClinical } from "@/lib/roles";
 import { buildContactList, contactSummary, matchFilter, type ContactFilter } from "@/lib/contact-list";
 import { ContactList, statusLabel } from "@/components/ContactList";
 import { buildWorkSheetHtml } from "@/lib/work-sheet";
@@ -61,15 +62,19 @@ function Dashboard() {
 
   // 연락할 환자 기준 점수 (설정 → 업무, 이 브라우저에 저장)
   const { threshold } = useAlertSettings();
-  const { data: cl } = useQuery(contactListQuery());
-  const { data: staff = [] } = useQuery(staffListQuery());
-  const { data: me } = useQuery(myStaffQuery());
+  const { data: me, isSuccess: meReady } = useQuery(myStaffQuery());
   const myId = me?.staff?.id ?? null;
+  // 역할별: 의료진은 화면에서 계산, 상담원은 서버가 점수 없이 만든 목록 (SQL 009)
+  const clinical = canSeeClinical(me?.staff);
+  const { data: cl } = useQuery({ ...contactListQuery(), enabled: meReady && clinical });
+  const board = useQuery({ ...counselorBoardQuery(threshold), enabled: meReady && Boolean(me?.staff) && !clinical });
+  const { data: staff = [] } = useQuery(staffListQuery());
   const nameOf = (id: string | null) => (id === null ? "미지정" : (staff.find((s) => s.id === id)?.name ?? "알 수 없음"));
 
   const [tab, setTab] = useState<Tab>("today");
   const [kpi, setKpi] = useState<ContactFilter | null>(null);
-  const all = cl ? buildContactList({ patients, threshold, ...cl, includeAll: true }) : [];
+  const ready = clinical ? Boolean(cl) : Boolean(board.data);
+  const all = clinical ? (cl ? buildContactList({ patients, threshold, ...cl, includeAll: true }) : []) : (board.data ?? []);
   const byTab = { today: all.filter((r) => r.inToday), all, mine: all.filter((r) => r.contactId === myId) };
   const sum = contactSummary(all);
   const shown = byTab[tab].filter((r) => matchFilter(r, kpi));
@@ -102,7 +107,7 @@ function Dashboard() {
       <div className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="text-2xl font-bold">오늘 연락할 환자 {byTab.today.length}명</h1>
-          <DailyCheckStatus inline />
+          {clinical && <DailyCheckStatus inline />}
         </div>
 
         {/* 요약 숫자: 누르면 그 환자만 걸러 보기 */}
@@ -164,8 +169,12 @@ function Dashboard() {
               <p className="font-semibold">담당 환자가 없습니다.</p>
               <p className="text-muted-foreground">관리자에게 담당 환자 배정을 요청하세요. 배정되면 이 목록에 나타납니다.</p>
             </div>
-          ) : !cl ? (
+          ) : !ready ? (
+            board.isError ? (
+              <p className="border-t px-5 py-6 text-sm text-muted-foreground" role="alert">목록을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.</p>
+            ) : (
             <p className="border-t px-5 py-6 text-sm text-muted-foreground" role="status">불러오는 중…</p>
+            )
           ) : (
             <div className="border-t md:border-t-0">
               <ContactList rows={shown} nameOf={nameOf} selectedId={selectedId} onSelect={(id) => selectPatient(id)} compact={split} />

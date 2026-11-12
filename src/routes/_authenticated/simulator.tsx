@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, BellRing, Info, RotateCcw, Trash2 } from "lucide-react";
-import { patientDetailQuery, patientsOverviewQuery } from "@/lib/queries";
+import { myStaffQuery, patientDetailQuery, patientsOverviewQuery } from "@/lib/queries";
+import { canSeeClinical } from "@/lib/roles";
 import { asOfFor, computeRisk, shouldAlert, toDateKey, type PlayLogLike, type RiskResult } from "@/lib/risk";
 import { LevelBadge } from "@/components/LevelBadge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/simulator")({
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(patientsOverviewQuery()),
-  component: Simulator,
+  component: SimulatorPage,
 });
 
 const DAY = 86_400_000;
@@ -55,6 +56,21 @@ function expandSteps(startDate: string, steps: Step[]) {
   }
   const lastDay = steps.length > 0 ? addDays(cursor, -1) : null;
   return { logs, rows, lastDay };
+}
+
+/** 시뮬레이터는 실제 환자 기록을 바탕으로 점수를 미리 보는 의료진용 도구라 상담원에게는 열지 않는다 */
+function SimulatorPage() {
+  const { data: me, isPending } = useQuery(myStaffQuery());
+  if (isPending) return <p className="py-12 text-center text-muted-foreground" role="status">불러오는 중…</p>;
+  if (!canSeeClinical(me?.staff))
+    return (
+      <div className="space-y-3 py-12 text-center">
+        <p className="font-semibold">시뮬레이터는 의료진(의사·간호사) 화면입니다.</p>
+        <p className="text-muted-foreground">상담원 계정은 대시보드에서 연락 업무를 보세요.</p>
+        <Link to="/dashboard" className="text-primary underline-offset-2 hover:underline">대시보드로</Link>
+      </div>
+    );
+  return <Simulator />;
 }
 
 function Simulator() {
