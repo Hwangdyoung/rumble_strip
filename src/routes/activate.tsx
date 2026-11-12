@@ -18,8 +18,8 @@ import { loginIdToEmail } from "@/lib/login-id";
 export const Route = createFileRoute("/activate")({
   head: () => ({
     meta: [
-      { title: "비밀번호 만들기 | 이탈방지턱" },
-      { name: "description", content: "관리자에게 받은 처음 설정 코드로 비밀번호를 만듭니다." },
+      { title: "계정 활성화 | 이탈방지턱" },
+      { name: "description", content: "초대 코드를 입력하고 비밀번호를 설정합니다." },
     ],
   }),
   component: ActivatePage,
@@ -44,7 +44,7 @@ function ActivatePage() {
       await activateAccount({ data: r.value });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      setErrors([msg.startsWith("Missing Supabase") ? "서버 설정이 없어 지금은 비밀번호를 만들 수 없습니다. 배포 사이트에서 시도해 주세요." : msg || "비밀번호를 만들지 못했습니다. 다시 시도해 주세요."]);
+      setErrors([msg.startsWith("Missing Supabase") ? "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." : msg || "계정을 활성화하지 못했습니다. 잠시 후 다시 시도해 주세요."]);
       setBusy(false);
       return;
     }
@@ -61,15 +61,15 @@ function ActivatePage() {
           <Logo />
         </div>
         <div className="rounded-2xl border bg-card p-6 shadow-card sm:p-8">
-          <h1 className="text-2xl font-bold">비밀번호 만들기</h1>
-          <p className="mt-1 text-muted-foreground">관리자에게 받은 아이디와 처음 설정 코드를 넣고, 앞으로 쓸 비밀번호를 직접 정하세요.</p>
+          <h1 className="text-2xl font-bold">계정 활성화</h1>
+          <p className="mt-1 text-muted-foreground">관리자에게 받은 아이디와 초대 코드를 입력하고 비밀번호를 설정하세요.</p>
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="act-login-id" className="text-base">아이디</Label>
               <Input id="act-login-id" value={loginId} onChange={(e) => setLoginId(e.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} required className="h-12 text-base" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="act-code" className="text-base">처음 설정 코드</Label>
+              <Label htmlFor="act-code" className="text-base">초대 코드</Label>
               <Input
                 id="act-code"
                 value={code}
@@ -83,12 +83,12 @@ function ActivatePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="act-password" className="text-base">새 비밀번호</Label>
+              <Label htmlFor="act-password" className="text-base">비밀번호</Label>
               <Input id="act-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={MIN_PASSWORD} required className="h-12 text-base" />
-              <p className="text-xs text-muted-foreground">{MIN_PASSWORD}자 이상. 관리자도 이 비밀번호를 알 수 없습니다.</p>
+              <p className="text-xs text-muted-foreground">{MIN_PASSWORD}자 이상 입력하세요.</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="act-confirm" className="text-base">새 비밀번호 확인</Label>
+              <Label htmlFor="act-confirm" className="text-base">비밀번호 확인</Label>
               <Input id="act-confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" required className="h-12 text-base" />
             </div>
             {errors.length > 0 && (
@@ -97,13 +97,13 @@ function ActivatePage() {
               </ul>
             )}
             <Button type="submit" disabled={busy} className="h-12 w-full text-base">
-              {busy ? "처리 중…" : "비밀번호 만들고 로그인"}
+              {busy ? "처리 중…" : "활성화하고 로그인"}
             </Button>
           </form>
           <p className="mt-5 text-center text-sm leading-relaxed text-muted-foreground">
-            코드를 잃어버렸거나 기한이 지났으면 관리자에게 코드를 다시 만들어 달라고 요청해 주세요.
+            코드를 분실했거나 유효 기간이 지났다면 관리자에게 재발급을 요청하세요.
             <br />
-            <Link to="/auth" className="font-semibold text-primary underline-offset-4 hover:underline">로그인 화면으로</Link>
+            <Link to="/auth" className="font-semibold text-primary underline-offset-4 hover:underline">로그인으로 돌아가기</Link>
           </p>
         </div>
       </div>

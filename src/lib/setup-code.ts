@@ -91,23 +91,26 @@ export function checkActivation(
   const code = normalizeSetupCode(input.code);
   const password = String(input.password ?? "");
   const errors: string[] = [];
-  if (loginId.length < 3 || loginId.length > 30 || loginId.includes("@")) errors.push("아이디를 입력해 주세요(관리자에게 받은 아이디).");
-  if (code.length !== CODE_LEN) errors.push("처음 설정 코드는 8글자입니다(예: K7QM-4XPA).");
-  if (password.length < MIN_PASSWORD) errors.push(`비밀번호는 ${MIN_PASSWORD}자 이상이어야 합니다.`);
-  else if (password.length > 72) errors.push("비밀번호가 너무 깁니다(72자 이하).");
-  if (input.confirm !== undefined && input.confirm !== password) errors.push("비밀번호 확인이 같지 않습니다.");
+  if (loginId.length < 3 || loginId.length > 30 || loginId.includes("@")) errors.push("아이디를 입력하세요.");
+  if (code.length !== CODE_LEN) errors.push("초대 코드 8자리를 입력하세요.");
+  if (password.length < MIN_PASSWORD) errors.push(`비밀번호는 ${MIN_PASSWORD}자 이상 입력하세요.`);
+  else if (password.length > 72) errors.push("비밀번호는 72자 이하로 입력하세요.");
+  if (input.confirm !== undefined && input.confirm !== password) errors.push("비밀번호가 일치하지 않습니다.");
   if (errors.length > 0) return { ok: false, errors };
   return { ok: true, value: { loginId, code, password } };
 }
 
-/** 관리자가 본인에게 그대로 보낼 안내 문장 */
+/** 관리자가 초대받은 사람에게 그대로 보낼 안내 메시지 */
 export function setupMessage(p: { name: string; loginId: string; code: string; expiresAt: Date; siteUrl: string }): string {
   const d = p.expiresAt;
   const when = `${d.getMonth() + 1}월 ${d.getDate()}일 ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   return [
-    `${p.name} 님, 이탈방지턱 계정을 만들었습니다.`,
-    `1) ${p.siteUrl}/activate 에 들어갑니다.`,
-    `2) 아이디 ${p.loginId}, 처음 설정 코드 ${formatSetupCode(p.code)} 를 넣고 비밀번호를 직접 정합니다.`,
-    `코드는 ${when}까지, 한 번만 쓸 수 있습니다.`,
+    `[이탈방지턱] ${p.name} 님, 계정이 준비되었습니다.`,
+    `아래 주소에서 초대 코드를 입력하고 비밀번호를 설정해 주세요.`,
+    `${p.siteUrl}/activate`,
+    ``,
+    `아이디: ${p.loginId}`,
+    `초대 코드: ${formatSetupCode(p.code)}`,
+    `유효 기간: ${when}까지 (1회 사용)`,
   ].join("\n");
 }

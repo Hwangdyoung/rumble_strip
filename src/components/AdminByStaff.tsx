@@ -63,8 +63,8 @@ export function AdminByStaff({
         <CreateStaffAccount disabled={busy} onCreated={onCreated} />
       </div>
       <p className="text-sm text-muted-foreground">
-        회원가입은 받지 않습니다. 계정은 '의료진 계정 만들기'로 만들고, 본인이 '처음 설정 코드'로 비밀번호를 만듭니다.
-        코드를 잃어버렸거나 비밀번호를 잊으면 '코드 다시 만들기'를 누르세요. 역할과 관리자 권한은 여기서 관리자만 바꿉니다.
+        새 의료진은 '의료진 계정 만들기'로 초대합니다. 비밀번호를 잊은 경우 '초대 코드 재발급'을 이용하세요.
+        역할과 관리자 권한은 관리자만 변경할 수 있습니다.
         상담원은 연락 업무에 필요한 정보(단계·접속 여부·연락 도우미)만 봅니다.
       </p>
 
@@ -73,7 +73,7 @@ export function AdminByStaff({
         {shown.map((s) => {
           const w = workload?.find((x) => x.staffId === s.id);
           const inv = invites?.[s.id];
-          const pending = inv && inv !== "사용함" ? (inv === "대기" ? "설정 대기" : inv === "잠김" ? "코드 잠김" : "코드 기한 지남") : null;
+          const pending = inv && inv !== "사용함" ? (inv === "대기" ? "활성화 대기" : inv === "잠김" ? "코드 잠김" : "코드 만료") : null;
           const expanded = open === s.id;
           return (
             <li key={s.id} className={cn(s.isNew && "bg-level-caution-soft/40")}>
@@ -95,7 +95,7 @@ export function AdminByStaff({
                           "ml-1.5 rounded-full px-2 py-0.5 text-xs font-semibold",
                           inv === "대기" ? "bg-muted text-muted-foreground" : "bg-level-risk-soft text-level-risk",
                         )}
-                        title="본인이 아직 처음 설정 코드로 비밀번호를 만들지 않았습니다"
+                        title="아직 계정을 활성화하지 않았습니다"
                       >
                         {pending}
                       </span>

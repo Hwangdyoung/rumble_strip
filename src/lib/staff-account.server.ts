@@ -66,7 +66,7 @@ export const createStaffAccount = createServerFn({ method: "POST" })
     const { error: sErr } = await supabaseAdmin.from("staff").insert({ id, name: data.name, role: data.role });
     if (sErr) {
       await supabaseAdmin.auth.admin.deleteUser(id);
-      throw new Error("의료진 정보를 저장하지 못해 계정을 만들지 않았습니다. 다시 시도해 주세요.");
+      throw new Error("계정을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.");
     }
 
     const code = generateSetupCode();
@@ -81,7 +81,7 @@ export const createStaffAccount = createServerFn({ method: "POST" })
     if (iErr) {
       await supabaseAdmin.from("staff").delete().eq("id", id);
       await supabaseAdmin.auth.admin.deleteUser(id);
-      throw new Error("처음 설정 코드를 저장하지 못해 계정을 만들지 않았습니다. (SQL 010을 실행했는지 확인해 주세요)");
+      throw new Error("계정을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.");
     }
     return { loginId: data.loginId, name: data.name, code, expiresAt };
   });
@@ -95,17 +95,17 @@ export const reissueSetupCode = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }): Promise<SetupCodeResult> => {
     await assertAdmin(context, "관리자만 코드를 다시 만들 수 있습니다.");
-    if (data.staffId === context.userId) throw new Error("내 비밀번호는 설정 화면에서 바꿔 주세요.");
+    if (data.staffId === context.userId) throw new Error("내 비밀번호는 설정 화면에서 변경할 수 있습니다.");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: staff } = await supabaseAdmin.from("staff").select("name").eq("id", data.staffId).maybeSingle();
     const { data: user } = await supabaseAdmin.auth.admin.getUserById(data.staffId);
-    if (!staff || !user?.user?.email) throw new Error("의료진을 찾지 못했습니다.");
+    if (!staff || !user?.user?.email) throw new Error("계정을 찾을 수 없습니다.");
     const loginId = displayLoginId(user.user.email);
 
     // 먼저 비밀번호를 아무도 모르는 값으로 바꿔, 예전 비밀번호로는 더 로그인하지 못하게 한다
     const { error: pErr } = await supabaseAdmin.auth.admin.updateUserById(data.staffId, { password: randomHiddenPassword() });
-    if (pErr) throw new Error("코드를 만들지 못했습니다. 다시 시도해 주세요.");
+    if (pErr) throw new Error("초대 코드를 재발급하지 못했습니다. 잠시 후 다시 시도해 주세요.");
 
     const code = generateSetupCode();
     const expiresAt = setupCodeExpiry(new Date()).toISOString();
@@ -122,11 +122,11 @@ export const reissueSetupCode = createServerFn({ method: "POST" })
       },
       { onConflict: "staff_id" },
     );
-    if (error) throw new Error("코드를 저장하지 못했습니다. 다시 시도해 주세요. (SQL 010을 실행했는지 확인해 주세요)");
+    if (error) throw new Error("초대 코드를 재발급하지 못했습니다. 잠시 후 다시 시도해 주세요.");
     return { loginId, name: staff.name, code, expiresAt };
   });
 
-const ACTIVATE_FAIL = "아이디나 코드가 맞지 않거나, 코드 기한이 지났습니다. 계속 안 되면 관리자에게 코드를 다시 만들어 달라고 요청해 주세요.";
+const ACTIVATE_FAIL = "아이디 또는 초대 코드가 올바르지 않거나 유효 기간이 지났습니다. 문제가 계속되면 관리자에게 재발급을 요청하세요.";
 
 export const activateAccount = createServerFn({ method: "POST" })
   .validator((d: unknown) => {
@@ -141,7 +141,7 @@ export const activateAccount = createServerFn({ method: "POST" })
       .select("staff_id, code_hash, expires_at, used_at, attempts")
       .eq("login_id", data.loginId)
       .maybeSingle();
-    if (error) throw new Error("확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.");
+    if (error) throw new Error("일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
     if (!inv || inviteState(inv, new Date()) !== "대기") throw new Error(ACTIVATE_FAIL);
 
     const ok = sameHash(await hashSetupCode(data.code, inv.staff_id), inv.code_hash);
@@ -162,7 +162,7 @@ export const activateAccount = createServerFn({ method: "POST" })
     const { error: pErr } = await supabaseAdmin.auth.admin.updateUserById(inv.staff_id, { password: data.password });
     if (pErr) {
       await supabaseAdmin.from("staff_invites").update({ used_at: null }).eq("staff_id", inv.staff_id);
-      throw new Error("비밀번호를 저장하지 못했습니다. 다른 비밀번호로 다시 시도해 주세요.");
+      throw new Error("비밀번호를 설정하지 못했습니다. 다른 비밀번호로 다시 시도해 주세요.");
     }
     return { loginId: data.loginId };
   });

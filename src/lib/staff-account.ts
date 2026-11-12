@@ -32,9 +32,9 @@ export function checkNewAccount(input: NewAccountInput): { ok: true; value: NewA
   const name = String(input.name ?? "").trim();
   const role = String(input.role ?? "");
   const errors: string[] = [];
-  if (!LOGIN_ID_RE.test(loginId)) errors.push("아이디는 영어 소문자·숫자로 3~30자로 정해 주세요(가운데에 . _ - 사용 가능).");
-  if (name.length < 1 || name.length > 30) errors.push("이름을 1~30자로 입력해 주세요.");
-  if (!(NEW_ACCOUNT_ROLES as readonly string[]).includes(role)) errors.push("역할을 골라 주세요.");
+  if (!LOGIN_ID_RE.test(loginId)) errors.push("아이디는 영문 소문자와 숫자 3~30자로 입력하세요.");
+  if (name.length < 1 || name.length > 30) errors.push("이름을 입력하세요(30자 이내).");
+  if (!(NEW_ACCOUNT_ROLES as readonly string[]).includes(role)) errors.push("역할을 선택하세요.");
   if (errors.length > 0) return { ok: false, errors };
   return { ok: true, value: { loginId, email: loginIdToEmail(loginId), name, role: role as NewAccountRole } };
 }
