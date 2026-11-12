@@ -19,9 +19,12 @@ begin
     select id into p2 from public.patients order by name offset 1 limit 1;
     select id into p3 from public.patients order by name offset 2 limit 1;
     -- 8번 시험용: 알림이 있는 환자 중 p1·p2가 아닌 환자
-    select patient_id into pa from public.alerts where patient_id not in (p1, p2) limit 1;
+    -- (23번 시험을 위해 결과가 '미정'·'연락 불가'인 알림이 있는 환자를 먼저 고른다)
+    select patient_id into pa from public.alerts where patient_id not in (p1, p2)
+    order by (outcome in ('미정', '연락 불가')) desc, created_at desc limit 1;
     select count(*) into pa_alerts from public.alerts where patient_id = pa;
-    select id into pa_alert from public.alerts where patient_id = pa limit 1;
+    select id into pa_alert from public.alerts where patient_id = pa
+    order by (outcome in ('미정', '연락 불가')) desc, created_at desc limit 1;
     -- 25번 시험용: p1·p2·pa가 아닌 환자
     select id into p4 from public.patients where id not in (p1, p2) and id is distinct from pa order by name limit 1;
 
