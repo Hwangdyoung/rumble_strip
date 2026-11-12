@@ -194,6 +194,13 @@ export async function setPatientStaff(patientId: string, staffId: string, assign
   if (error && !(assigned && error.code === "23505")) throw error; // 이미 연결돼 있으면 무시
 }
 
+/** 관리자: 여러 환자를 한 사람에게 한 번에 연결 (이미 연결된 환자는 빼고 넘길 것: assignments.ts patientsToLink) */
+export async function linkPatientsToStaff(patientIds: string[], staffId: string) {
+  if (patientIds.length === 0) return;
+  const { error } = await supabase.from("patient_staff").insert(patientIds.map((id) => ({ patient_id: id, staff_id: staffId })));
+  if (error && error.code !== "23505") throw error;
+}
+
 /** 관리자: 의료진 역할·관리자 여부 변경 */
 export async function updateStaff(staffId: string, patch: { role?: StaffRole; is_admin?: boolean }) {
   const { error } = await supabase.from("staff").update(patch).eq("id", staffId);

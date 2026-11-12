@@ -17,8 +17,9 @@ AI는 진단·처방을 바꾸지 않는 참고용 보조 도구다. 모든 UI �
 - 2026-11-11: 사용자가 Vercel에 배포했다(`https://rumble-strip.vercel.app`, 로그인·대시보드·매일 점검 동작을 화면으로 확인).
   GitHub `main`에 push하면 Vercel이 자동 배포한다(확인함). 빌드가 실패하면 직전 정상 배포가 계속 서비스된다.
   Vercel 환경 변수(Production): `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_URL`,
-  `SUPABASE_SERVICE_ROLE_KEY`(Secret), `CRON_SECRET`(Secret). `ANTHROPIC_API_KEY`, `SUPABASE_PUBLISHABLE_KEY`는
-  없어서 배포 사이트의 AI 요약은 규칙 기반으로 나올 것(추정).
+  `SUPABASE_SERVICE_ROLE_KEY`(Secret), `CRON_SECRET`(Secret), `SUPABASE_PUBLISHABLE_KEY`(2026-11-12 추가, 서버 함수 로그인 확인용).
+  `ANTHROPIC_API_KEY`는 없어서 배포 사이트의 AI 요약은 규칙 기반으로 나온다.
+  주의: `VITE_` 변수는 화면용이고, 서버 함수(`auth-middleware.ts`)는 `VITE_` 없는 이름을 읽는다. 둘 다 있어야 한다.
   `CRON_SECRET` 값 끝에 줄바꿈이 있으면 Vercel 빌드가 실패한다(`openssl rand -hex 24 | tr -d '\n' | pbcopy`로 만들 것).
 - 저장소는 비공개였고, 조원에게 보여주려고 공개 또는 Collaborator 초대를 검토했다(실제 설정은 사용자가 GitHub에서 함).
 - 2026-11-12: 의료진 계정별 담당 환자 접근 제한(RLS), 관리자 '담당 관리' 화면, 아이디 로그인(admin)을 추가했다.
@@ -71,6 +72,10 @@ npm run format  # prettier
   '연락 기록하기')는 늘 보이고, 아래는 탭 5개로 한 화면씩 옆으로 넘긴다(탭 줄 sticky, 보던 탭은 다른 환자에서도 유지):
   연락 도우미(`ResponseGuide.tsx`) / 경과 요약(AI 요약·핵심 지표·위험 이유·점수 구성) / 그래프 / 캘린더 /
   연락 이력(`ContactHistory.tsx`: 새로 나빠짐·연락 기록·넘긴 기록 시간 순, 새로 나빠짐 줄에서 결과 기록). 넘김 효과는 `styles.css`의 `.tab-slide`.
+- 담당 관리(`admin.tsx`, 관리자만): 의료진·환자가 많아져도 쓰도록 탭 2개(2026-11-12, 예전 '의료진 = 열' 표를 바꿈).
+  환자별(`AdminByPatient.tsx`): 환자 한 줄에 담당자 이름표(×로 해제), 이름 검색으로 추가(`NamePicker.tsx`), 환자 검색·담당 미배정만,
+  여러 환자를 골라 한 사람에게 한 번에 배정, 연락 담당 선택. 의료진별(`AdminByStaff.tsx`): 이름·역할로 찾기, 역할·관리자 설정,
+  펼쳐서 담당 환자 추가·해제, 업무량 표시, 새로 가입한 사람(담당 0명·관리자 아님)이 맨 위. 계산은 `src/lib/assignments.ts`. DB 변경 없음.
 - 담당은 환자 단위 '연락 담당' 하나. '내가 맡기'(관리자·그 환자 담당자 누구나)와 '넘기기'(받는 사람은 그 환자 담당자)는
   DB 함수 `take_patient`, `handoff_patient`(SQL 007)가 권한을 확인하고 처리한다. 처리 안 된 알림 담당자도 함께 바뀐다.
 - 담당자별 업무량(`staff_workload`, SQL 008, `src/lib/workload.ts`): 사람별 건수만 돌려주는 DB 함수(환자 정보 없음).
@@ -206,21 +211,21 @@ npm run format  # prettier
 - Anthropic 크레딧 충전 여부 결정
 - Lovable 쪽 GitHub 연결 해제 확인, 새 Supabase에서 안정 확인 후 Lovable DB 정리
   (Lovable 미리보기 링크가 과제 노션에 걸려 있으니 채점 후)
-- 배포 사이트 AI 요약용 환경 변수(`ANTHROPIC_API_KEY`, `SUPABASE_PUBLISHABLE_KEY`)는 크레딧 충전 때 함께 등록
+- 배포 사이트 AI 요약용 `ANTHROPIC_API_KEY`는 크레딧 충전 때 등록
 - Vercel Cron을 'Schedules'로 옮길지 결정. 현재 Cron Jobs(Legacy)로 등록·동작 중이다
   (2026-11-11: Vercel 프로젝트 메뉴 Schedules → Cron Jobs에 `/api/daily-check` Active, 수동 Run 결과 HTTP 200).
   Vercel 화면에서 'deprecated, Schedules로 옮기라'는 안내가 나온다
 - 예전 시뮬레이터가 실제로 저장한 play_logs·risk_scores 정리 여부 결정(삭제는 사용자 확인 후).
   2026-11-11 기준 alerts는 매일 점검이 만든 3건뿐이었다. play_logs·risk_scores는 확인하지 않았다
 - 회원가입이 열려 있다(가입해도 배정 전에는 아무 환자도 안 보임). 실제 운영 전에는 Supabase에서 가입을 막고 관리자가 계정을 만드는 방식 검토
-- 역할별 화면 제한 검토: 상담원(의료인 아님)은 연락 업무에 필요한 정보만 보게 하기(개인정보 최소 수집·이용 원칙, 병원 개인정보 담당 확인 필요)
+- 역할별 접근 제한은 구현했다(아래). 실제 운영 전 병원 개인정보 담당 확인 필요
 - 대응 가이드 문구 현장 검토, 관리자가 문구를 화면에서 고치는 기능(DB 필요), 실제 문자 발송 연동 검토
 - Lovable 전용 코드 정리(`lovable-error-reporting.ts`, `previewAuthStorage.ts`, `cron-auth.ts`, `@lovable.dev/vite-tanstack-config`)
 - 예전 상태가 남은 문서·설정 확인: `supabase/config.toml`의 `project_id`가 `.env`의 새 프로젝트와 다름,
   `README.md`는 Lovable 템플릿 그대로, `AGENTS.md` 본문의 "staff-only RLS" 설명은 003 이후 담당 환자 기준과 다름,
   `prompts.md`의 시뮬레이터 설명(재계산·알림 생성)은 지금과 다름
 
-## 역할별 접근 제한 (2026-11-12, main 반영·SQL 009 실행·시험 25가지 모두 기대대로 확인. 상담원 계정 화면 확인은 아직)
+## 역할별 접근 제한 (2026-11-12 완료: main 반영, SQL 009 실행, 시험 25가지 기대대로, 배포 사이트에서 상담원·관리자 화면 확인)
 - 상담원(의료인 아님)은 연락 업무에 필요한 정보만 본다. 의사·간호사·관리자 화면은 그대로. 판단은 `src/lib/roles.ts`의 `canSeeClinical`.
 - DB(SQL 009): 상담원은 play_logs·risk_scores·alerts를 직접 못 읽음(알림 문구에 정확도 등 수치가 있어서). 역할은 관리자만 바꾸고
   새 가입자는 '상담원'으로 시작(`saveMyStaff`는 이름만). 상담원도 쓰는 DB 함수: `record_contact`, `mark_alert_seen`, `set_contact_outcome`(미정·연락 불가만).
@@ -231,4 +236,5 @@ npm run format  # prettier
   매일 점검·시뮬레이터·AI 요약 없음(AI 요약 서버 함수도 거절). 알림 결과는 미정·연락 불가만.
 - 남은 빈틈: 보호자 안내문(인쇄)에 주별 평균 사용 시간이 들어감(보호자용 정보라 허용), 연락 기록 메모는 상담원도 봄,
   프로필 메뉴의 '내 알림' 수는 상담원에게 0으로 보일 수 있음.
-- 순서: Vercel `SUPABASE_PUBLISHABLE_KEY` 추가 → 코드 push → SQL 009 실행 → `003_staff_rls_test.sql`(17~25번) → 상담원 계정으로 화면 확인.
+- 처음 배포 때 상담원 목록이 "불러오지 못했습니다"였던 원인은 Vercel에 `SUPABASE_PUBLISHABLE_KEY`(VITE_ 없는 이름)가 없어서였다. 추가·Redeploy 후 해결.
+- 시험 계정: 상담원 '황도영'(강민준·김하늘 담당).
