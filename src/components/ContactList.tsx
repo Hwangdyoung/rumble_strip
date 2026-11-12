@@ -26,12 +26,15 @@ export function ContactList({
   selectedId,
   onSelect,
   compact,
+  picking,
 }: {
   rows: ContactRow[];
   nameOf: (id: string | null) => string;
   selectedId: string | undefined;
   onSelect: (id: string) => void;
   compact: boolean;
+  /** 여러 명 넘기기: 고른 환자와 고를 수 있는 환자(내가 연락 담당) */
+  picking?: { picked: Set<string>; selectable: Set<string>; onToggle: (id: string) => void } | undefined;
 }) {
   if (rows.length === 0) {
     return <p className="px-5 py-8 text-center text-muted-foreground">해당하는 환자가 없습니다.</p>;
@@ -39,13 +42,25 @@ export function ContactList({
   return (
     <ul className="divide-y">
       {rows.map((r) => (
-        <li key={r.patientId}>
+        <li key={r.patientId} className={cn(picking && "flex items-stretch")}>
+          {picking && (
+            <label className="flex shrink-0 cursor-pointer items-center pl-4" title={picking.selectable.has(r.patientId) ? undefined : "내가 연락 담당인 환자만 고를 수 있습니다"}>
+              <input
+                type="checkbox"
+                className="size-5 accent-primary"
+                checked={picking.picked.has(r.patientId)}
+                disabled={!picking.selectable.has(r.patientId)}
+                onChange={() => picking.onToggle(r.patientId)}
+                aria-label={`${r.name} 선택`}
+              />
+            </label>
+          )}
           <button
             type="button"
             onClick={() => onSelect(r.patientId)}
             aria-current={selectedId === r.patientId ? "true" : undefined}
             className={cn(
-              "grid w-full items-center gap-x-4 gap-y-1.5 px-5 py-3.5 text-left transition hover:bg-muted",
+              "grid w-full min-w-0 items-center gap-x-4 gap-y-1.5 px-5 py-3.5 text-left transition hover:bg-muted",
               compact ? "grid-cols-[minmax(0,1fr)_auto]" : "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]",
               selectedId === r.patientId && "bg-secondary ring-2 ring-inset ring-primary",
               !r.needsAction && "opacity-70",

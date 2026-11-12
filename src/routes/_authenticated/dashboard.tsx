@@ -3,7 +3,7 @@ import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Printer } from "lucide-react";
+import { ArrowRightLeft, Printer } from "lucide-react";
 import { contactListQuery, counselorBoardQuery, myStaffQuery, patientsOverviewQuery, staffListQuery } from "@/lib/queries";
 import { canSeeClinical } from "@/lib/roles";
 import { buildContactList, contactSummary, matchFilter, type ContactFilter } from "@/lib/contact-list";
@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SplitPatientDetail } from "@/components/SplitPatientDetail";
 import { TeamWorkload } from "@/components/TeamWorkload";
+import { BulkHandoffDialog } from "@/components/BulkHandoffDialog";
+import { selectableIds } from "@/lib/bulk-handoff";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   validateSearch: zodValidator(z.object({ patient: fallback(z.string(), "").optional() })),
@@ -78,6 +80,29 @@ function Dashboard() {
   const byTab = { today: all.filter((r) => r.inToday), all, mine: all.filter((r) => r.contactId === myId) };
   const sum = contactSummary(all);
   const shown = byTab[tab].filter((r) => matchFilter(r, kpi));
+
+  // 여러 명 넘기기: '내 담당' 탭에서만, 내가 연락 담당인 환자만 고른다 (의사·간호사·관리자 화면)
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const canPick = clinical && tab === "mine";
+  const selectable = new Set(selectableIds(shown, myId));
+  const pickedIds = shown.filter((r) => picked.has(r.patientId) && selectable.has(r.patientId)).map((r) => r.patientId);
+  useEffect(() => {
+    if (!canPick) {
+      setPicking(false);
+      setPicked(new Set());
+    }
+  }, [canPick]);
+  const togglePick = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const allPicked = selectable.size > 0 && pickedIds.length === selectable.size;
+  const patientName = (id: string) => all.find((r) => r.patientId === id)?.name ?? "환자";
 
   function printList() {
     const html = buildWorkSheetHtml({
@@ -157,8 +182,36 @@ function Dashboard() {
                 </Button>
               )}
             </div>
-            <Button variant="ghost" size="sm" onClick={printList} aria-label="목록 인쇄"><Printer /> 인쇄</Button>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {canPick && !picking && selectable.size > 0 && (
+                <Button variant="outline" size="sm" onClick={() => setPicking(true)}>
+                  <ArrowRightLeft /> 여러 명 넘기기
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={printList} aria-label="목록 인쇄"><Printer /> 인쇄</Button>
+            </div>
           </div>
+          {picking && (
+            <div className="flex flex-wrap items-center gap-2 border-t bg-secondary px-4 py-2.5 text-sm">
+              <label className="flex cursor-pointer items-center gap-2 font-medium">
+                <input
+                  type="checkbox"
+                  className="size-5 accent-primary"
+                  checked={allPicked}
+                  onChange={() => setPicked(allPicked ? new Set() : new Set(selectable))}
+                  aria-label="모두 선택"
+                />
+                모두 선택
+              </label>
+              <span className="tabular-nums text-muted-foreground">{pickedIds.length}명 선택됨</span>
+              <span className="ml-auto flex gap-1.5">
+                <Button variant="ghost" size="sm" onClick={() => { setPicking(false); setPicked(new Set()); }}>취소</Button>
+                <Button size="sm" disabled={pickedIds.length === 0} onClick={() => setBulkOpen(true)}>
+                  <ArrowRightLeft /> {pickedIds.length > 0 ? `${pickedIds.length}명 넘기기` : "넘기기"}
+                </Button>
+              </span>
+            </div>
+          )}
           {!split && (
             <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-4 border-y bg-muted px-5 py-2 text-xs font-semibold text-muted-foreground md:grid">
               <span>환자 · 이유</span><span>단계 · 점수</span><span>상태</span><span>연락 담당</span>
@@ -177,7 +230,14 @@ function Dashboard() {
             )
           ) : (
             <div className="border-t md:border-t-0">
-              <ContactList rows={shown} nameOf={nameOf} selectedId={selectedId} onSelect={(id) => selectPatient(id)} compact={split} />
+              <ContactList
+                rows={shown}
+                nameOf={nameOf}
+                selectedId={selectedId}
+                onSelect={(id) => selectPatient(id)}
+                compact={split}
+                picking={picking ? { picked, selectable, onToggle: togglePick } : undefined}
+              />
             </div>
           )}
         </section>
@@ -187,6 +247,18 @@ function Dashboard() {
         </p>
       </div>
 
+      <BulkHandoffDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        patientIds={pickedIds}
+        nameOf={patientName}
+        staff={staff}
+        myId={myId}
+        onDone={() => {
+          setPicking(false);
+          setPicked(new Set());
+        }}
+      />
       {displayedId && <SplitPatientDetail patientId={displayedId} closing={!split} onClose={() => selectPatient()} />}
     </div>
   );

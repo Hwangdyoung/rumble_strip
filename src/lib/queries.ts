@@ -157,6 +157,18 @@ export const patientStaffQuery = (patientId: string) =>
     },
   });
 
+/** 여러 환자 넘기기: 선택한 환자들의 담당 연결 (볼 수 있는 환자만 RLS로 나옴) */
+export const patientLinksQuery = (patientIds: string[]) =>
+  queryOptions({
+    queryKey: ["patient-staff", "links", [...patientIds].sort().join(",")],
+    queryFn: async (): Promise<Array<{ patientId: string; staffId: string }>> => {
+      if (patientIds.length === 0) return [];
+      const { data, error } = await supabase.from("patient_staff").select("patient_id, staff_id").in("patient_id", patientIds);
+      if (error) throw error;
+      return (data ?? []).map((r) => ({ patientId: r.patient_id, staffId: r.staff_id }));
+    },
+  });
+
 /** 관리자 화면: 전체 환자와 담당 연결 */
 export const assignmentsQuery = () =>
   queryOptions({
