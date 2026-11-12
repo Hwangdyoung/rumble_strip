@@ -44,9 +44,9 @@ export function StaffProfileForm({ current, onSaved, autoFocus = false }: { curr
       </div>
       <div className="space-y-1">
         <p className="text-base font-medium">역할</p>
-        <p className="text-base">{current ? `${current.role}${current.is_admin ? " · 관리자" : ""}` : "상담원 (처음 시작)"}</p>
+        <p className="text-base">{current ? `${current.role}${current.is_admin ? " · 관리자" : ""}` : "상담원"}</p>
         <p className="text-sm text-muted-foreground">
-          역할은 관리자가 '담당 관리'에서 정합니다. 역할에 따라 볼 수 있는 정보가 다릅니다(상담원은 연락 업무에 필요한 정보만).
+          역할은 관리자가 지정합니다. 역할에 따라 볼 수 있는 정보가 다릅니다.
         </p>
       </div>
       <div className="flex justify-end">
@@ -71,7 +71,7 @@ export function StaffProfileGate() {
       >
         <DialogHeader>
           <DialogTitle className="text-xl">처음 오셨네요</DialogTitle>
-          <DialogDescription>이름과 역할을 입력해 주세요. 관리자가 담당 환자를 배정할 때 이 이름이 보입니다.</DialogDescription>
+          <DialogDescription>사용할 이름을 입력해 주세요. 담당 환자 배정과 연락 이력에 이 이름이 표시됩니다.</DialogDescription>
         </DialogHeader>
         <StaffProfileForm current={null} autoFocus />
       </DialogContent>
@@ -110,15 +110,15 @@ export function PasswordChangeForm() {
       }
       const { error: ue } = await supabase.auth.updateUser({ password: next });
       if (ue) {
-        setError(ue.message.toLowerCase().includes("password") ? `비밀번호를 바꾸지 못했습니다: ${ue.message}` : "비밀번호를 바꾸지 못했습니다. 다시 시도해 주세요.");
+        setError(ue.message.toLowerCase().includes("password") ? "사용할 수 없는 비밀번호입니다. 다른 비밀번호를 입력해 주세요." : "비밀번호를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.");
         return;
       }
       setCurrent("");
       setNext("");
       setConfirm("");
-      toast.success("비밀번호를 바꿨습니다. 다음 로그인부터 새 비밀번호를 쓰세요.");
+      toast.success("비밀번호를 변경했습니다.");
     } catch {
-      setError("비밀번호를 바꾸지 못했습니다. 다시 시도해 주세요.");
+      setError("비밀번호를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
       setSaving(false);
     }

@@ -268,7 +268,7 @@ function AlertSettingsForm() {
         {targets.length > capacity ? ` · 처리 가능 인원보다 ${targets.length - capacity}명 많음` : ""}
       </p>
       <p className="text-xs text-muted-foreground">
-        처리 가능 인원은 1~{MAX_CAPACITY}명(예시 환자 {MAX_CAPACITY}명 기준)입니다. 자동 설정은 점수 순으로 그 인원째 환자의 점수를 기준으로 맞춥니다.
+        처리 가능 인원은 1~{MAX_CAPACITY}명까지 정할 수 있습니다. 자동 설정을 누르면 점수가 높은 순으로 그 인원에 맞게 기준 점수를 정합니다.
       </p>
     </div>
   );

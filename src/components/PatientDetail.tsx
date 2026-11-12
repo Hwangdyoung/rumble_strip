@@ -652,12 +652,12 @@ export function ActionDialog({
               <Input id="next-date" type="date" value={nextDate} min={toDateKey(new Date())} onChange={(e) => setNextDate(e.target.value)} className="h-11 w-44 text-base" />
               {nextDate && <Button type="button" variant="ghost" size="sm" onClick={() => setNextDate("")}>예정 없음</Button>}
             </div>
-            <p className="text-xs text-muted-foreground">대응 가이드 기준 기본값입니다. 그날 '오늘 업무 → 처리할 알림 → 다시 연락'에 나타납니다.</p>
+            <p className="text-xs text-muted-foreground">단계에 맞춰 기본 날짜가 정해집니다. 그날 대시보드에 '오늘 다시 연락'으로 표시됩니다.</p>
           </div>
           {openFollowUps.length > 0 && (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={completeOpen} onChange={(e) => setCompleteOpen(e.target.checked)} className="size-4" />
-              예정돼 있던 연락 {openFollowUps.length}건을 이번 조치로 완료 처리
+              예정된 연락 {openFollowUps.length}건도 함께 완료
             </label>
           )}
         </div>

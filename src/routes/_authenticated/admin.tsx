@@ -87,7 +87,7 @@ function AdminContent({ myId }: { myId: string }) {
     mutationFn: (v: { staffId: string; role?: StaffRole; is_admin?: boolean }) =>
       updateStaff(v.staffId, { ...(v.role ? { role: v.role } : {}), ...(v.is_admin !== undefined ? { is_admin: v.is_admin } : {}) }),
     onSuccess: refresh,
-    onError: () => toast.error("의료진 정보를 바꾸지 못했습니다."),
+    onError: () => toast.error("의료진 정보를 변경하지 못했습니다. 다시 시도해 주세요."),
   });
 
   if (staff.isPending || asg.isPending) return <p className="py-12 text-center text-muted-foreground" role="status">불러오는 중…</p>;

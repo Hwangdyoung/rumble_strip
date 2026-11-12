@@ -148,7 +148,7 @@ export function AlertOutcomeSummary({ embedded = false }: { embedded?: boolean }
           </div>
         </>
       )}
-      <p className="mt-3 text-xs text-muted-foreground">가상 데이터라 검증 결과가 아님. 실제 데이터가 쌓이면 점수 기준을 보정하는 데 씁니다. 관리자가 아니면 담당 환자의 알림만 셉니다.</p>
+      <p className="mt-3 text-xs text-muted-foreground">지금은 가상 데이터라 검증 결과가 아닙니다. 실제 데이터가 쌓이면 점수 기준을 보정하는 데 활용합니다. 관리자가 아니면 담당 환자의 알림만 집계됩니다.</p>
     </section>
   );
 }

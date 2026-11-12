@@ -103,7 +103,7 @@ export const fetchCounselorPatient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d: unknown) => {
     const id = (d as { patientId?: unknown } | null)?.patientId;
-    if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) throw new Error("환자 id가 올바르지 않습니다.");
+    if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) throw new Error("환자 정보를 찾을 수 없습니다.");
     return { patientId: id };
   })
   .handler(async ({ data, context }): Promise<CounselorPatient | null> => {

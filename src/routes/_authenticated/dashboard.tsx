@@ -224,7 +224,7 @@ function Dashboard() {
             </div>
           ) : !ready ? (
             board.isError ? (
-              <p className="border-t px-5 py-6 text-sm text-muted-foreground" role="alert">목록을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.</p>
+              <p className="border-t px-5 py-6 text-sm text-muted-foreground" role="alert">목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
             ) : (
             <p className="border-t px-5 py-6 text-sm text-muted-foreground" role="status">불러오는 중…</p>
             )

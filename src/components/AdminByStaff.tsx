@@ -65,7 +65,7 @@ export function AdminByStaff({
       <p className="text-sm text-muted-foreground">
         새 의료진은 '의료진 계정 만들기'로 초대합니다. 비밀번호를 잊은 경우 '초대 코드 재발급'을 이용하세요.
         역할과 관리자 권한은 관리자만 변경할 수 있습니다.
-        상담원은 연락 업무에 필요한 정보(단계·접속 여부·연락 도우미)만 봅니다.
+        상담원은 연락 업무에 필요한 정보(단계·접속 여부·연락 도우미)만 볼 수 있습니다.
       </p>
 
       <ul className="divide-y rounded-xl border">

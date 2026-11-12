@@ -95,7 +95,7 @@ export function CounselorPatientDetail({ id, panel = false }: { id: string; pane
           )}
         </div>
         <PatientContact patientId={patient.id} />
-        <p className="text-xs text-muted-foreground">상담원 화면: 연락 업무에 필요한 정보만 보입니다. 사용 시간·게임 결과·점수는 의료진이 확인합니다.</p>
+        <p className="text-xs text-muted-foreground">연락 업무에 필요한 정보만 표시됩니다. 사용 시간·게임 결과·점수는 의료진이 확인합니다.</p>
       </div>
 
       <div role="tablist" aria-label="환자 상세 보기" className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto rounded-xl border bg-card p-1 shadow-card">

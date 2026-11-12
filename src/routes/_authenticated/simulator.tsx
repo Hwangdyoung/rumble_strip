@@ -65,8 +65,8 @@ function SimulatorPage() {
   if (!canSeeClinical(me?.staff))
     return (
       <div className="space-y-3 py-12 text-center">
-        <p className="font-semibold">시뮬레이터는 의료진(의사·간호사) 화면입니다.</p>
-        <p className="text-muted-foreground">상담원 계정은 대시보드에서 연락 업무를 보세요.</p>
+        <p className="font-semibold">의료진만 사용할 수 있는 화면입니다.</p>
+        <p className="text-muted-foreground">연락 업무는 대시보드에서 확인해 주세요.</p>
         <Link to="/dashboard" className="text-primary underline-offset-2 hover:underline">대시보드로</Link>
       </div>
     );
@@ -246,7 +246,7 @@ function Simulator() {
               </ul>
               {wouldAlert && (
                 <p className="flex items-center gap-2 rounded-lg bg-level-risk-soft px-3 py-2 text-level-risk">
-                  <BellRing className="size-4 shrink-0" /> 이렇게 되면 매일 점검에서 알림 조건에 해당합니다. (실제 알림은 만들지 않음)
+                  <BellRing className="size-4 shrink-0" /> 이렇게 되면 매일 점검에서 알림 대상이 됩니다. 미리보기라 실제 알림은 만들어지지 않습니다.
                 </p>
               )}
             </div>

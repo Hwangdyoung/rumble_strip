@@ -84,7 +84,7 @@ export function AdminByPatient({
               </th>
               <th scope="col" className="py-2 pr-3 font-medium">환자</th>
               <th scope="col" className="py-2 pr-3 font-medium">담당 의료진</th>
-              <th scope="col" className="min-w-36 py-2 font-medium">연락 담당 <span className="font-normal">(알림 자동 배정)</span></th>
+              <th scope="col" className="min-w-36 py-2 font-medium">연락 담당</th>
             </tr>
           </thead>
           <tbody>
