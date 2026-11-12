@@ -438,6 +438,18 @@ export type Database = {
       can_see_patient: { Args: { pid: string }; Returns: boolean }
       handoff_patient: { Args: { pid: string; to_staff: string; reason: string; note?: string }; Returns: undefined }
       is_admin: { Args: never; Returns: boolean }
+      staff_workload: {
+        Args: never
+        Returns: {
+          staff_id: string
+          staff_name: string
+          staff_role: string
+          patients: number
+          new_worse: number
+          follow_due: number
+          todo: number
+        }[]
+      }
       take_patient: { Args: { pid: string }; Returns: undefined }
     }
     Enums: {

@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { handoffPatient, HANDOFF_REASONS, myStaffQuery, patientStaffQuery, takePatient, type HandoffReason } from "@/lib/queries";
+import { handoffPatient, HANDOFF_REASONS, myStaffQuery, patientStaffQuery, staffWorkloadQuery, takePatient, type HandoffReason } from "@/lib/queries";
+import { lightestStaff, workloadText } from "@/lib/workload";
 import { cn } from "@/lib/utils";
 
 /**
@@ -76,6 +77,9 @@ function HandoffDialog({
   const [to, setTo] = useState("");
   const [reason, setReason] = useState<HandoffReason>("인계");
   const [note, setNote] = useState("");
+  // 업무량은 SQL 008 실행 전이면 못 받아온다. 그때는 숫자만 빼고 넘기기는 그대로 된다.
+  const { data: workload } = useQuery({ ...staffWorkloadQuery(), enabled: open });
+  const light = workload ? lightestStaff(workload, options.map((s) => s.id)) : [];
   useEffect(() => {
     if (!open) return;
     setTo(options[0]?.id ?? "");
@@ -107,10 +111,39 @@ function HandoffDialog({
             <DialogDescription>받는 사람이 이 환자의 연락 담당이 됩니다. 넘긴 기록과 메모는 연락 이력에 남습니다.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="handoff-to" className="text-base">받는 사람</Label>
-            <select id="handoff-to" value={to} onChange={(e) => setTo(e.target.value)} className="h-11 w-full rounded-md border border-input bg-card px-3 text-base">
-              {options.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.role})</option>)}
-            </select>
+            <Label id="handoff-to-label" className="text-base">받는 사람</Label>
+            <div className="grid gap-2" role="radiogroup" aria-labelledby="handoff-to-label">
+              {options.map((s) => {
+                const w = workload?.find((x) => x.staffId === s.id);
+                const on = to === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setTo(s.id)}
+                    className={cn(
+                      "flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border bg-card px-3 py-2 text-left transition hover:bg-muted",
+                      on && "border-primary bg-secondary ring-2 ring-primary",
+                    )}
+                  >
+                    <span className="font-semibold">
+                      {s.name} <span className="font-normal text-muted-foreground">({s.role})</span>
+                      {light.includes(s.id) && (
+                        <span className="ml-2 rounded-full bg-level-normal-soft px-2 py-0.5 text-xs font-semibold text-level-normal">여유</span>
+                      )}
+                    </span>
+                    {workload && <span className="text-sm tabular-nums text-muted-foreground">{workloadText(w)}</span>}
+                  </button>
+                );
+              })}
+            </div>
+            {workload && (
+              <p className="text-xs text-muted-foreground">
+                오늘 할 일 = 새로 나빠졌거나 오늘까지 다시 연락할 환자 수(연락 담당 기준). '여유'는 참고 표시이고, 받는 사람은 직접 고릅니다.
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label className="text-base">이유</Label>

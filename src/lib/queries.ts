@@ -4,6 +4,7 @@ import { asOfFor, computeRisk } from "./risk";
 import { koreaNow } from "./daily-check";
 import { runDailyCheckWith } from "./daily-check-run";
 import { suggestOutcome, type AlertOutcome } from "./alert-outcome";
+import type { Workload } from "./workload";
 
 export const patientsOverviewQuery = () =>
   queryOptions({
@@ -338,6 +339,31 @@ export async function handoffPatient(v: { patientId: string; toStaff: string; re
   const { error } = await supabase.rpc("handoff_patient", { pid: v.patientId, to_staff: v.toStaff, reason: v.reason, note: v.note.trim() });
   if (error) throw error;
 }
+
+/**
+ * 담당자별 업무량 (DB 함수 staff_workload, SQL 008). 사람별 건수만 받고 환자 정보는 받지 않는다.
+ * 일반 의료진도 팀 전체 숫자를 정확히 본다(RLS 때문에 직접 세면 자기 담당만 보임).
+ * SQL 008을 실행하기 전이면 에러 → 화면은 업무량만 숨기고 나머지는 그대로 동작한다.
+ */
+export const staffWorkloadQuery = () =>
+  queryOptions({
+    queryKey: ["alerts", "workload"],
+    queryFn: async (): Promise<Workload[]> => {
+      const { data, error } = await supabase.rpc("staff_workload");
+      if (error) throw error;
+      return (data ?? []).map((r) => ({
+        staffId: r.staff_id,
+        name: r.staff_name,
+        role: r.staff_role,
+        patients: r.patients,
+        newWorse: r.new_worse,
+        followDue: r.follow_due,
+        todo: r.todo,
+      }));
+    },
+    retry: false,
+    refetchInterval: 60_000,
+  });
 
 /** '오늘 연락할 환자' 목록 재료: 알림, 열린 다음 연락, 마지막 조치, 연락 담당 */
 export const contactListQuery = () =>

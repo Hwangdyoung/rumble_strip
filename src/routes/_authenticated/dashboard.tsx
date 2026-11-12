@@ -14,6 +14,7 @@ import { useAlertSettings } from "@/lib/alert-settings";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SplitPatientDetail } from "@/components/SplitPatientDetail";
+import { TeamWorkload } from "@/components/TeamWorkload";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   validateSearch: zodValidator(z.object({ patient: fallback(z.string(), "").optional() })),
@@ -126,6 +127,8 @@ function Dashboard() {
             );
           })}
         </div>
+
+        <TeamWorkload myId={myId} />
 
         <section className="overflow-hidden rounded-2xl border bg-card shadow-card" aria-label="환자 목록">
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">

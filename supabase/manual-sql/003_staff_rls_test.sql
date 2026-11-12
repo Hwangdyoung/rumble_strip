@@ -144,6 +144,28 @@ begin
       res := res || format('14. 자기 담당 환자 내가 맡기: 실패 (문제, 코드 %s)', sqlstate) || E'\n';
     end;
 
+    -- 15) 담당자별 업무량: 2명 담당 계정이 불러도 전체 연락 담당 수와 같아야 함 (008 이후)
+    begin
+      execute 'reset role';
+      select count(*) into total from public.patient_staff where is_contact;
+      execute 'set local role authenticated';
+      select coalesce(sum(patients), 0) into n from public.staff_workload();
+      res := res || format('15. 일반 계정의 업무량 합계: 연락 담당 %s명 (기대: %s, 전체와 같음)', n, total) || E'\n';
+      select count(*) into n from public.patient_staff where is_contact;
+      res := res || format('    같은 계정이 직접 센 연락 담당: %s명 (RLS 때문에 담당 환자만 보임)', n) || E'\n';
+    exception when others then
+      res := res || format('15. 업무량 함수: 실패 (008 실행 전이면 정상, 코드 %s)', sqlstate) || E'\n';
+    end;
+
+    -- 16) 의료진으로 등록되지 않은 계정은 업무량을 받지 못함 (008 이후)
+    begin
+      perform set_config('request.jwt.claims', json_build_object('sub', fake, 'role', 'authenticated')::text, true);
+      select count(*) into n from public.staff_workload();
+      res := res || format('16. 등록 안 된 계정의 업무량: %s줄 (기대: 0)', n) || E'\n';
+    exception when others then
+      res := res || format('16. 업무량 함수: 실패 (008 실행 전이면 정상, 코드 %s)', sqlstate) || E'\n';
+    end;
+
     -- 여기까지의 변경을 모두 되돌리기 위해 일부러 예외를 낸다 (결과 문장을 함께 실어 보냄)
     raise exception 'RESULT:%', res;
   exception when others then
