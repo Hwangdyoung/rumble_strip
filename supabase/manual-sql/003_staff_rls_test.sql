@@ -7,7 +7,7 @@ declare
   res text := '';
   admin_id uuid;
   fake uuid := gen_random_uuid();
-  p1 uuid; p2 uuid; p3 uuid; pa uuid; pa_alerts int;
+  p1 uuid; p2 uuid; p3 uuid; pa uuid; pa_alerts int; pa_alert uuid;
   n int; total int;
   claims text;
 begin
@@ -21,6 +21,7 @@ begin
     -- 8번 시험용: 알림이 있는 환자 중 p1·p2가 아닌 환자
     select patient_id into pa from public.alerts where patient_id not in (p1, p2) limit 1;
     select count(*) into pa_alerts from public.alerts where patient_id = pa;
+    select id into pa_alert from public.alerts where patient_id = pa limit 1;
 
     -- 1) 관리자: 전체 환자
     perform set_config('request.jwt.claims', json_build_object('sub', admin_id, 'role', 'authenticated')::text, true);
@@ -96,6 +97,27 @@ begin
     update public.patient_staff set is_contact = true where patient_id = p1 and staff_id = admin_id;
     get diagnostics n = row_count;
     res := res || format('9. 일반 계정이 연락 담당 지정: %s건 바뀜 (기대: 0)', n) || E'\n';
+
+    -- 10) 담당 아닌 환자의 알림에 넘긴 기록 추가 (006 이후)
+    if pa is null then
+      res := res || '10. 담당 아닌 환자 알림 넘기기: 시험할 알림이 없음' || E'\n';
+    else
+      begin
+        insert into public.alert_handoffs (alert_id, patient_id, from_staff, to_staff, reason)
+        values (pa_alert, pa, admin_id, admin_id, '인계');
+        res := res || '10. 담당 아닌 환자 알림 넘기기: 막히지 않음 (문제)' || E'\n';
+      exception when others then
+        res := res || format('10. 담당 아닌 환자 알림 넘기기: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
+      end;
+    end if;
+
+    -- 11) 담당 아닌 환자에 다음 연락 일정 추가 (006 이후)
+    begin
+      insert into public.follow_ups (patient_id, due_date, assignee_id) values (p3, current_date, admin_id);
+      res := res || '11. 담당 아닌 환자 다음 연락 일정 추가: 막히지 않음 (문제)' || E'\n';
+    exception when others then
+      res := res || format('11. 담당 아닌 환자 다음 연락 일정 추가: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
+    end;
 
     -- 여기까지의 변경을 모두 되돌리기 위해 일부러 예외를 낸다 (결과 문장을 함께 실어 보냄)
     raise exception 'RESULT:%', res;

@@ -20,6 +20,10 @@ export interface Preferences {
   firstTab: FirstTab;
   /** 대시보드 환자 목록 기본 필터 */
   defaultFilter: DefaultFilter;
+  /** 내가 하루에 처리할 수 있는 알림 수 (넘으면 경고만) */
+  myAlertCapacity: number;
+  /** '처리할 알림' 정렬 */
+  alertSort: "oldest" | "score";
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -29,6 +33,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   overdueDays: 2,
   firstTab: "last",
   defaultFilter: "전체",
+  myAlertCapacity: 5,
+  alertSort: "oldest",
 };
 
 export const PREFS_KEY = "rumble-strip:prefs";
@@ -57,6 +63,8 @@ function read(): Preferences {
     overdueDays: Number.isInteger(v.overdueDays) && v.overdueDays! >= 1 && v.overdueDays! <= 7 ? v.overdueDays! : 2,
     firstTab: (["last", "alerts", "contact", "outcomes"] as const).includes(v.firstTab as FirstTab) ? (v.firstTab as FirstTab) : "last",
     defaultFilter: v.defaultFilter === "알림 대상" ? "알림 대상" : "전체",
+    myAlertCapacity: Number.isInteger(v.myAlertCapacity) && v.myAlertCapacity! >= 1 && v.myAlertCapacity! <= 50 ? v.myAlertCapacity! : 5,
+    alertSort: v.alertSort === "score" ? "score" : "oldest",
   };
   return cache;
 }

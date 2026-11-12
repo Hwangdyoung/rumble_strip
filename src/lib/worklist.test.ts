@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWorklist, type WorkAlert } from "./worklist";
+import { buildWorklist, overCapacity, type WorkAlert } from "./worklist";
 
 const now = new Date(2026, 0, 10, 10);
 const at = (day: number, hour = 9) => new Date(2026, 0, day, hour).toISOString();
@@ -47,6 +47,16 @@ describe("buildWorklist", () => {
     const w = buildWorklist([a("1", 9), a("2", 7)], "me", now, 4); // 1일·3일 지남
     expect(w.items.all.map((x) => x.overdue)).toEqual([false, false]);
     expect(buildWorklist([a("2", 7)], "me", now, 1).items.all[0]?.overdue).toBe(true);
+  });
+
+  it("위험 높은 순 정렬을 고를 수 있다 (같은 점수면 오래된 순)", () => {
+    const w = buildWorklist([a("1", 9, { alert_score: 60 }), a("2", 7, { alert_score: 55 }), a("3", 8, { alert_score: 60 })], "me", now, 2, "score");
+    expect(w.items.all.map((x) => x.id)).toEqual(["3", "1", "2"]);
+  });
+
+  it("처리 가능 수를 넘은 건수", () => {
+    expect(overCapacity(7, 5)).toBe(2);
+    expect(overCapacity(3, 5)).toBe(0);
   });
 
   it("로그인 정보가 없으면 내 담당은 비어 있다", () => {

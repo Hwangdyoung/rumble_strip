@@ -28,14 +28,15 @@ export const patientDetailQuery = (id: string) =>
   queryOptions({
     queryKey: ["patient", id],
     queryFn: async () => {
-      const [p, logs, actions, alerts] = await Promise.all([
+      const [p, logs, actions, alerts, follow] = await Promise.all([
         supabase.from("patients").select("*").eq("id", id).maybeSingle(),
         supabase.from("play_logs").select("*").eq("patient_id", id).order("session_start"),
         supabase.from("actions").select("*").eq("patient_id", id).order("created_at", { ascending: false }),
         supabase.from("alerts").select("*").eq("patient_id", id).order("created_at", { ascending: false }),
+        supabase.from("follow_ups").select("*").eq("patient_id", id).is("done_at", null).order("due_date"),
       ]);
-      for (const r of [p, logs, actions, alerts]) if (r.error) throw r.error;
-      return { patient: p.data, logs: logs.data ?? [], actions: actions.data ?? [], alerts: alerts.data ?? [] };
+      for (const r of [p, logs, actions, alerts, follow]) if (r.error) throw r.error;
+      return { patient: p.data, logs: logs.data ?? [], actions: actions.data ?? [], alerts: alerts.data ?? [], followUps: follow.data ?? [] };
     },
   });
 
@@ -205,7 +206,7 @@ export const worklistQuery = () =>
       start.setHours(0, 0, 0, 0);
       const { data, error } = await supabase
         .from("alerts")
-        .select("id, patient_id, created_at, status, alert_level, assignee_id, resolved_at, patients(name)")
+        .select("id, patient_id, created_at, status, alert_level, alert_score, assignee_id, resolved_at, patients(name), alert_handoffs(from_staff, to_staff, reason, note, created_at)")
         .or(`status.neq.조치완료,resolved_at.gte.${start.toISOString()}`)
         .order("created_at");
       if (error) throw error;
@@ -216,8 +217,14 @@ export const worklistQuery = () =>
         created_at: a.created_at,
         status: a.status,
         alert_level: a.alert_level,
+        alert_score: a.alert_score,
         assignee_id: a.assignee_id,
         resolved_at: a.resolved_at,
+        // 지금 담당자에게 마지막으로 넘겨진 기록 (넘겨받은 알림 표시용)
+        handoff:
+          (a.alert_handoffs ?? [])
+            .filter((h) => h.to_staff === a.assignee_id)
+            .sort((x, y) => (x.created_at < y.created_at ? 1 : -1))[0] ?? null,
       }));
     },
     refetchInterval: 60_000,
@@ -258,4 +265,62 @@ export async function fetchAlertExport() {
     .order("created_at");
   if (error) throw error;
   return data ?? [];
+}
+
+// ─── 알림 넘기기·다음 연락 일정 ──────────────────────────────────────────────
+
+export const HANDOFF_REASONS = ["인계", "의사 확인 요청", "기타"] as const;
+export type HandoffReason = (typeof HANDOFF_REASONS)[number];
+
+/** 한 환자의 알림 넘긴 기록 (오래된 순) */
+export const alertHandoffsQuery = (patientId: string) =>
+  queryOptions({
+    queryKey: ["alerts", "handoffs", patientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("alert_handoffs")
+        .select("id, alert_id, from_staff, to_staff, reason, note, created_at")
+        .eq("patient_id", patientId)
+        .order("created_at");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+/** 알림 넘기기: 기록을 남기고 알림 담당자를 받는 사람으로 바꾼다 */
+export async function handoffAlert(v: { alertId: string; patientId: string; toStaff: string; reason: HandoffReason; note: string }) {
+  const { error } = await supabase
+    .from("alert_handoffs")
+    .insert({ alert_id: v.alertId, patient_id: v.patientId, to_staff: v.toStaff, reason: v.reason, note: v.note.trim() });
+  if (error) throw error;
+  await setAlertAssignee(v.alertId, v.toStaff);
+}
+
+/** 열린 다음 연락 일정 전체 (볼 수 있는 환자만) */
+export const followUpsQuery = () =>
+  queryOptions({
+    queryKey: ["alerts", "follow-ups"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("follow_ups")
+        .select("id, patient_id, alert_id, due_date, assignee_id, note, done_at, patients(name)")
+        .is("done_at", null)
+        .order("due_date");
+      if (error) throw error;
+      return (data ?? []).map((f) => ({ ...f, patient_name: f.patients?.name ?? "" }));
+    },
+    refetchInterval: 60_000,
+  });
+
+export async function createFollowUp(v: { patientId: string; alertId: string | null; dueDate: string; assigneeId: string | null; note?: string }) {
+  const { error } = await supabase
+    .from("follow_ups")
+    .insert({ patient_id: v.patientId, alert_id: v.alertId, due_date: v.dueDate, assignee_id: v.assigneeId, note: v.note ?? "" });
+  if (error) throw error;
+}
+
+export async function completeFollowUps(ids: string[]) {
+  if (ids.length === 0) return;
+  const { error } = await supabase.from("follow_ups").update({ done_at: new Date().toISOString() }).in("id", ids);
+  if (error) throw error;
 }

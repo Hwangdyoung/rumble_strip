@@ -59,6 +59,68 @@ export type Database = {
           },
         ]
       }
+      alert_handoffs: {
+        Row: {
+          alert_id: string
+          created_at: string
+          from_staff: string | null
+          id: string
+          note: string
+          patient_id: string
+          reason: string
+          to_staff: string
+        }
+        Insert: {
+          alert_id: string
+          created_at?: string
+          from_staff?: string | null
+          id?: string
+          note?: string
+          patient_id: string
+          reason: string
+          to_staff: string
+        }
+        Update: {
+          alert_id?: string
+          created_at?: string
+          from_staff?: string | null
+          id?: string
+          note?: string
+          patient_id?: string
+          reason?: string
+          to_staff?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_handoffs_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_handoffs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_handoffs_from_staff_fkey"
+            columns: ["from_staff"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_handoffs_to_staff_fkey"
+            columns: ["to_staff"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alerts: {
         Row: {
           alert_level: string | null
@@ -128,6 +190,64 @@ export type Database = {
             columns: ["risk_score_id"]
             isOneToOne: false
             referencedRelation: "risk_scores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      follow_ups: {
+        Row: {
+          alert_id: string | null
+          assignee_id: string | null
+          created_at: string
+          created_by: string | null
+          done_at: string | null
+          due_date: string
+          id: string
+          note: string
+          patient_id: string
+        }
+        Insert: {
+          alert_id?: string | null
+          assignee_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          due_date: string
+          id?: string
+          note?: string
+          patient_id: string
+        }
+        Update: {
+          alert_id?: string | null
+          assignee_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          due_date?: string
+          id?: string
+          note?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follow_ups_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_ups_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_ups_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
             referencedColumns: ["id"]
           },
         ]

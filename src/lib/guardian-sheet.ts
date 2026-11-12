@@ -20,6 +20,8 @@ export interface GuardianSheetInput {
   /** 보호자 설명 문장 (response-guide의 plainSummary) */
   notes: string[];
   staffName?: string | null;
+  /** 다음 연락 예정일 YYYY-MM-DD (없으면 손으로 쓰는 빈칸) */
+  nextContactDate?: string | null;
   printedAt?: Date;
 }
 
@@ -111,7 +113,7 @@ ${closing ? `<p class="closing">${esc(closing)}</p>` : ""}
 <h2>문의</h2>
 <table class="contact">
 <tr><th>병원</th><td class="blank">&nbsp;</td><th>담당자</th><td>${d.staffName ? esc(d.staffName) : '<span class="blank">&nbsp;</span>'}</td></tr>
-<tr><th>연락처</th><td class="blank">&nbsp;</td><th>다음 연락 예정</th><td class="blank">&nbsp;&nbsp;&nbsp;&nbsp;월&nbsp;&nbsp;&nbsp;&nbsp;일</td></tr>
+<tr><th>연락처</th><td class="blank">&nbsp;</td><th>다음 연락 예정</th><td${d.nextContactDate ? "" : ' class="blank"'}>${d.nextContactDate ? `${Number(d.nextContactDate.slice(5, 7))}월 ${Number(d.nextContactDate.slice(8))}일` : "&nbsp;&nbsp;&nbsp;&nbsp;월&nbsp;&nbsp;&nbsp;&nbsp;일"}</td></tr>
 </table>
 
 <footer><span>진단이나 처방 변경이 아닌 참고용 안내입니다. 궁금한 점은 담당 의료진에게 문의해 주세요.</span><span>이탈방지턱</span></footer>

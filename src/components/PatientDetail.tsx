@@ -5,16 +5,19 @@ import { ArrowLeft, Plus } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { myStaffQuery, patientDetailQuery } from "@/lib/queries";
+import { completeFollowUps, createFollowUp, myStaffQuery, patientDetailQuery, staffListQuery } from "@/lib/queries";
 import { asOfFor, computeRisk, riskHistory, weeklySummary, summaryEvidence, CAUSE_ACTION, RISK_CONFIG, toDateKey } from "@/lib/risk";
-import type { RiskResult } from "@/lib/risk";
+import type { RiskLevel, RiskResult } from "@/lib/risk";
 import type { CalendarLog } from "@/lib/calendar";
 import { setAlertStatus, type AlertStatus } from "@/lib/queries";
 import { alertStatusStyle } from "@/components/AlertsBell";
 import { AlertOutcomePicker } from "@/components/AlertOutcome";
 import { AlertAssignee } from "@/components/AlertAssignee";
+import { HandoffButton, HandoffHistory } from "@/components/Handoff";
 import { ResponseGuide } from "@/components/ResponseGuide";
 import { ACTION_MEMO_TEMPLATE, buildGuide } from "@/lib/response-guide";
+import { defaultFollowUpDate } from "@/lib/follow-up";
+import { Input } from "@/components/ui/input";
 import { suggestOutcome } from "@/lib/alert-outcome";
 import { Sparkles } from "lucide-react";
 import { CauseBadge, LevelBadge } from "@/components/LevelBadge";
@@ -66,6 +69,7 @@ export function PatientDetail({ id, panel = false }: { id: string; panel?: boole
       logs={data.logs}
       actions={data.actions}
       alerts={data.alerts}
+      followUps={data.followUps}
     />
   );
 }
@@ -82,6 +86,7 @@ function PatientDetailContent({
   logs,
   actions,
   alerts,
+  followUps,
 }: {
   id: string;
   panel: boolean;
@@ -94,6 +99,7 @@ function PatientDetailContent({
   asOf: Date;
   logs: CalendarLog[];
   actions: Array<{ id: string; action_type: string; memo: string | null; created_at: string }>;
+  followUps: Array<{ id: string; due_date: string; assignee_id: string | null; note: string }>;
   alerts: Array<{ id: string; message: string; status: string; created_at: string; outcome: string; outcome_note: string | null; alert_score: number | null; alert_level: string | null; assignee_id: string | null }>;
 }) {
   // AI 경과 요약 쿼리 — 환자 화면을 열 때만, 같은 점수·단계·날짜에 한 번만 호출
@@ -162,6 +168,8 @@ function PatientDetailContent({
                 if (!v) setActionPreset(null);
               }}
               preset={actionPreset}
+              level={risk.level}
+              openFollowUps={followUps}
             />
           )}
         </div>
@@ -245,6 +253,7 @@ function PatientDetailContent({
               weeks,
               notes: guide.plainSummary,
               staffName: me?.staff?.name ?? null,
+              nextContactDate: followUps[0]?.due_date ?? null,
             }}
             normal={risk.level === "정상"}
             onRecord={openActionWith}
@@ -337,6 +346,7 @@ function PatientDetailContent({
       </Card>
 
       <Card title="조치 기록">
+        <FollowUpList patientId={patient.id} items={followUps} />
         {actions.length === 0 ? (
           <p className="text-muted-foreground">아직 기록된 조치가 없습니다.</p>
         ) : (
@@ -414,6 +424,38 @@ function ScoreComposition({ risk }: { risk: RiskResult }) {
   );
 }
 
+/** 이 환자의 다음 연락 예정 (완료 처리 가능) */
+function FollowUpList({ patientId, items }: { patientId: string; items: Array<{ id: string; due_date: string; assignee_id: string | null; note: string }> }) {
+  const qc = useQueryClient();
+  const { data: staff = [] } = useQuery(staffListQuery());
+  const m = useMutation({
+    mutationFn: (id: string) => completeFollowUps([id]),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["patient", patientId] });
+      qc.invalidateQueries({ queryKey: ["alerts"] });
+      toast.success("예정된 연락을 완료로 표시했습니다.");
+    },
+    onError: () => toast.error("완료 처리하지 못했습니다."),
+  });
+  if (items.length === 0) return null;
+  const today = toDateKey(new Date());
+  return (
+    <ul className="mb-4 space-y-2" aria-label="다음 연락 예정">
+      {items.map((f) => (
+        <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-accent px-4 py-2.5">
+          <span>
+            <span className="font-semibold">다음 연락 예정 {Number(f.due_date.slice(5, 7))}월 {Number(f.due_date.slice(8))}일</span>
+            {f.due_date < today && <span className="ml-2 rounded-full bg-level-risk-soft px-1.5 py-0.5 text-xs font-semibold text-level-risk">지남</span>}
+            {f.due_date === today && <span className="ml-2 rounded-full bg-level-caution-soft px-1.5 py-0.5 text-xs font-semibold text-level-caution-ink">오늘</span>}
+            <span className="ml-2 text-sm text-muted-foreground">{staff.find((s) => s.id === f.assignee_id)?.name ?? "담당 미정"}</span>
+          </span>
+          <Button variant="outline" size="sm" disabled={m.isPending} onClick={() => m.mutate(f.id)}>완료</Button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string | undefined }) {
   return (
     <div className="rounded-xl bg-muted p-3">
@@ -431,8 +473,14 @@ function ActionDialog({
   open: openProp,
   onOpenChange,
   preset,
+  level,
+  openFollowUps = [],
 }: {
   patientId: string;
+  /** 다음 연락 예정일 기본값을 정하는 데 씀 */
+  level: RiskLevel;
+  /** 이 환자의 열린 다음 연락 일정 */
+  openFollowUps?: Array<{ id: string; due_date: string }>;
   open?: boolean;
   onOpenChange?: (v: boolean) => void;
   /** 대응 가이드에서 열면 유형과 메모 틀을 미리 채운다 */
@@ -444,11 +492,17 @@ function ActionDialog({
   const setOpen = (v: boolean) => (onOpenChange ? onOpenChange(v) : setInnerOpen(v));
   const [type, setType] = useState<(typeof ACTION_TYPES)[number]>("전화 상담");
   const [memo, setMemo] = useState("");
+  const [nextDate, setNextDate] = useState("");
+  const [completeOpen, setCompleteOpen] = useState(true);
   useEffect(() => {
-    if (open && preset) {
+    if (!open) return;
+    if (preset) {
       setType(preset.type);
       setMemo(preset.memo);
     }
+    setNextDate(defaultFollowUpDate(level));
+    setCompleteOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, preset]);
   const mutation = useMutation({
     mutationFn: async () => {
@@ -461,11 +515,14 @@ function ActionDialog({
         const { error: ue } = await supabase.from("alerts").update({ status: "조치완료", resolved_at: new Date().toISOString() }).in("id", open.map((a) => a.id));
         if (ue) throw ue;
       }
+      // 예정돼 있던 연락은 이번 조치로 끝냄, 새 예정일이 있으면 만든다
+      if (completeOpen) await completeFollowUps(openFollowUps.map((f) => f.id));
+      if (nextDate) await createFollowUp({ patientId, alertId: open?.[0]?.id ?? null, dueDate: nextDate, assigneeId: u.user.id });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["patient", patientId] });
       qc.invalidateQueries({ queryKey: ["alerts"] });
-      toast.success("조치가 기록되었습니다.");
+      toast.success(nextDate ? `조치를 기록하고 ${Number(nextDate.slice(5, 7))}월 ${Number(nextDate.slice(8))}일에 다시 연락하도록 잡았습니다.` : "조치가 기록되었습니다.");
       setOpen(false);
       setMemo("");
     },
@@ -503,6 +560,20 @@ function ActionDialog({
             <Label htmlFor="memo" className="text-base">메모</Label>
             <Textarea id="memo" rows={4} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 보호자와 통화, 다음 주 재접속 약속" className="text-base" />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="next-date" className="text-base">다음 연락 예정일</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input id="next-date" type="date" value={nextDate} min={toDateKey(new Date())} onChange={(e) => setNextDate(e.target.value)} className="h-11 w-44 text-base" />
+              {nextDate && <Button type="button" variant="ghost" size="sm" onClick={() => setNextDate("")}>예정 없음</Button>}
+            </div>
+            <p className="text-xs text-muted-foreground">대응 가이드 기준 기본값입니다. 그날 '오늘 업무 → 처리할 알림 → 다시 연락'에 나타납니다.</p>
+          </div>
+          {openFollowUps.length > 0 && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={completeOpen} onChange={(e) => setCompleteOpen(e.target.checked)} className="size-4" />
+              예정돼 있던 연락 {openFollowUps.length}건을 이번 조치로 완료 처리
+            </label>
+          )}
         </div>
         <DialogFooter>
           <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} className="h-11">
@@ -551,7 +622,11 @@ function AlertRow({ alert, patientId, logs }: { alert: { id: string; message: st
           </Button>
         ))}
       </div>
-      <AlertAssignee alertId={alert.id} patientId={patientId} assigneeId={alert.assignee_id} />
+      <div className="flex flex-wrap items-center gap-2">
+        <AlertAssignee alertId={alert.id} patientId={patientId} assigneeId={alert.assignee_id} />
+        {alert.status !== "조치완료" && <HandoffButton alertId={alert.id} patientId={patientId} assigneeId={alert.assignee_id} />}
+      </div>
+      <HandoffHistory alertId={alert.id} patientId={patientId} />
       <AlertOutcomePicker
         alertId={alert.id}
         patientId={patientId}

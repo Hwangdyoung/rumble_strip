@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 const SECTIONS = [
   { id: "account", label: "계정", icon: UserRound, desc: "이름·역할, 비밀번호" },
   { id: "display", label: "화면", icon: Monitor, desc: "다크 모드, 글자 크기, 움직임" },
-  { id: "work", label: "업무", icon: Workflow, desc: "알림 기준, 지연 기준, 대시보드 기본값" },
+  { id: "work", label: "업무", icon: Workflow, desc: "알림 기준, 지연 기준, 업무량, 대시보드 기본값" },
   { id: "data", label: "데이터", icon: Database, desc: "알림 결과 내보내기" },
   { id: "info", label: "정보", icon: Info, desc: "점수 기준, 안내" },
 ] as const;
@@ -243,6 +243,24 @@ function WorkSection() {
             aria-label="지연 기준 일수"
           />
           <span className="text-sm text-muted-foreground">일 이상 지나면 지연 (1~7일)</span>
+        </div>
+      </Block>
+      <Block title="내 업무량" description="내 담당 알림이 이 수보다 많으면 '처리할 알림' 위에 경고를 띄웁니다. 알림을 막지는 않습니다.">
+        <div className="flex flex-wrap items-center gap-3">
+          <Input
+            id="pref-capacity"
+            type="number"
+            min={1}
+            max={50}
+            value={p.myAlertCapacity}
+            onChange={(e) => {
+              const v = Math.round(Number(e.target.value));
+              if (v >= 1 && v <= 50) setPreferences({ myAlertCapacity: v });
+            }}
+            className="h-11 w-24 text-base"
+            aria-label="하루 처리 가능한 알림 수"
+          />
+          <span className="text-sm text-muted-foreground">건 (하루에 처리할 수 있는 알림 수)</span>
         </div>
       </Block>
       <Block title="대시보드 기본값">

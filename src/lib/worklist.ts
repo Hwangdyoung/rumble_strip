@@ -18,7 +18,13 @@ export interface WorkAlert {
   alert_level: string | null;
   assignee_id: string | null;
   resolved_at: string | null;
+  /** 알림 당시 점수 (위험 높은 순 정렬용) */
+  alert_score?: number | null;
+  /** 지금 담당자가 넘겨받은 알림이면 넘긴 사람·이유·메모 */
+  handoff?: { from_staff: string | null; reason: string; note: string; created_at: string } | null;
 }
+
+export type WorkSort = "oldest" | "score";
 
 export interface WorkItem extends WorkAlert {
   ageDays: number;
@@ -35,7 +41,13 @@ export interface Worklist {
   doneToday: number;
 }
 
-export function buildWorklist(alerts: WorkAlert[], myId: string | null, now: Date = new Date(), overdueDays: number = OVERDUE_DAYS): Worklist {
+export function buildWorklist(
+  alerts: WorkAlert[],
+  myId: string | null,
+  now: Date = new Date(),
+  overdueDays: number = OVERDUE_DAYS,
+  sort: WorkSort = "oldest",
+): Worklist {
   const today = toDateKey(now);
   const open = alerts
     .filter((a) => a.status !== "조치완료")
@@ -43,7 +55,11 @@ export function buildWorklist(alerts: WorkAlert[], myId: string | null, now: Dat
       const ageDays = Math.max(0, Math.floor((now.getTime() - new Date(a.created_at).getTime()) / DAY));
       return { ...a, ageDays, overdue: ageDays >= overdueDays };
     })
-    .sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0));
+    .sort((a, b) => {
+      const byAge = a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0;
+      if (sort === "score") return (b.alert_score ?? -1) - (a.alert_score ?? -1) || byAge;
+      return byAge;
+    });
 
   const counts = new Map<string | null, number>();
   for (const a of open) counts.set(a.assignee_id, (counts.get(a.assignee_id) ?? 0) + 1);
@@ -60,4 +76,9 @@ export function buildWorklist(alerts: WorkAlert[], myId: string | null, now: Dat
     overdueCount: open.filter((a) => a.overdue).length,
     doneToday: alerts.filter((a) => a.status === "조치완료" && a.resolved_at && toDateKey(new Date(a.resolved_at)) === today).length,
   };
+}
+
+/** 내 담당 알림이 하루 처리 가능 수보다 많으면 초과 건수, 아니면 0 */
+export function overCapacity(mine: number, capacity: number): number {
+  return Math.max(0, mine - capacity);
 }

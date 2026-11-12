@@ -37,6 +37,10 @@ describe("buildGuardianSheetHtml", () => {
     expect(html).toContain("다음 연락 예정");
   });
 
+  it("다음 연락 예정일이 있으면 채운다", () => {
+    expect(buildGuardianSheetHtml({ ...input, nextContactDate: "2026-11-14" })).toContain("11월 14일");
+  });
+
   it("점수나 위험 단계를 쓰지 않는다", () => {
     expect(html).not.toMatch(/위험|점수|\/100/);
   });
