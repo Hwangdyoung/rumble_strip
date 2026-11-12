@@ -41,7 +41,8 @@ AI는 진단·처방을 바꾸지 않는 참고용 보조 도구다. 모든 UI �
 - 2026-11-12: 역할별 접근 제한(SQL 009, 상담원은 연락 업무 정보만, 아래 '역할별 접근 제한' 절)과 담당 관리 화면 개선
   (환자별·의료진별 탭)을 `main`에 올렸고 배포 사이트에서 확인했다. 시험 상담원 계정 '황도영'(강민준·김하늘 담당).
 - 2026-11-12: 회원가입 막기(코드). 로그인 화면에서 가입을 뺐고, 관리자가 담당 관리 '의료진별' 탭 '의료진 계정 만들기'로
-  계정(아이디@rumble-strip.test, 처음 비밀번호, 이름·역할)을 만든다. DB 변경 없음. Supabase에서 가입 끄기는 사용자가 할 일(아래 '남은 일').
+  계정(아이디@rumble-strip.test, 처음 비밀번호, 이름·역할)을 만든다. DB 변경 없음. `main` 반영(8052d85), 배포 사이트에서 계정 만들기 성공 확인(사용자).
+  로컬에서는 service role 키가 없어 계정 만들기가 실패한다(정상). Supabase에서 가입 끄기는 사용자가 할 일(아래 '남은 일').
 - 페르소나 평가 보고서(비공개 claude.ai 페이지): 2차 https://claude.ai/artifact/5aLLtQXDapyRmd48AN5cxe ,
   3차 https://claude.ai/artifact/RLd98tWuejUSiEuTUnjGeu , 4차 https://claude.ai/artifact/FHF6qGMnUTewRpvwhmf4WL
 
@@ -220,7 +221,7 @@ npm run format  # prettier
 
 ## 다음에 할 일 (추천 순서, 2026-11-12 기준)
 새 채팅은 "CLAUDE.md 읽고 이어서 하자. 오늘 할 일: (아래 중 하나)"로 시작한다. 큰 작업은 계획을 먼저 보여 주고 확인받는다.
-1. (완료, 2026-11-12) 회원가입 막기: 코드는 끝. Supabase에서 가입 끄기·배포 사이트 확인은 '남은 일' 참고.
+1. (완료, 2026-11-12) 회원가입 막기: 코드·배포·계정 만들기 확인 끝. Supabase에서 가입 끄기만 '남은 일' 참고.
 2. 5차 페르소나 평가 (중간, 코드 변경 없음)
    - 같은 60명(`/Users/hwangdoyoung/Desktop/personas.csv`), 자료는 `../페르소나 평가/`(eval4.py·eval4.json·build_report4.py 참고).
    - 4차 이후 바뀐 것: 담당자별 업무량, 역할별 접근 제한(상담원 화면), 담당 관리 탭. 4차의 '더 필요한 것'(eval4.json의 need) 해결 여부를 본다.
@@ -247,8 +248,9 @@ npm run format  # prettier
   Vercel 화면에서 'deprecated, Schedules로 옮기라'는 안내가 나온다
 - 예전 시뮬레이터가 실제로 저장한 play_logs·risk_scores 정리 여부 결정(삭제는 사용자 확인 후).
   2026-11-11 기준 alerts는 매일 점검이 만든 3건뿐이었다. play_logs·risk_scores는 확인하지 않았다
-- 회원가입 막기 마무리(사용자): 코드 배포 후 Supabase → Authentication → Sign In / Providers에서 'Allow new users to sign up' 끄기.
-  끈 뒤 배포 사이트에서 '의료진 계정 만들기'로 시험 계정을 만들어 로그인되는지 확인. 확인 전까지는 API로 직접 가입이 가능하다.
+- 회원가입 막기 마무리(사용자): Supabase → Authentication → Sign In / Providers에서 'Allow new users to sign up' 끄기.
+  끄기 전까지는 화면에 가입이 없어도 API로 직접 가입이 가능하다. 끈 뒤에도 앱의 '의료진 계정 만들기'는 관리자 API라 계속 된다.
+  배포 사이트에서 만든 시험 계정이 있으면 필요 없을 때 Supabase → Authentication → Users에서 지운다.
 - 역할별 접근 제한은 구현했다(아래). 실제 운영 전 병원 개인정보 담당 확인 필요
 - 대응 가이드 문구 현장 검토, 관리자가 문구를 화면에서 고치는 기능(DB 필요), 실제 문자 발송 연동 검토
 - Lovable 전용 코드 정리(`lovable-error-reporting.ts`, `previewAuthStorage.ts`, `cron-auth.ts`, `@lovable.dev/vite-tanstack-config`)
