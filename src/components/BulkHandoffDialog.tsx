@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -42,6 +43,7 @@ export function BulkHandoffDialog({
     .map((c) => staff.find((s) => s.id === c.staffId))
     .filter((s): s is Staff => Boolean(s));
   const light = workload ? lightestStaff(workload, options.map((s) => s.id)) : [];
+  const isAdmin = Boolean(staff.find((s) => s.id === myId)?.is_admin);
   const plan = to && links.data ? splitHandoff(patientIds, links.data, to) : { eligible: [], skipped: [] };
 
   useEffect(() => {
@@ -104,9 +106,18 @@ export function BulkHandoffDialog({
           ) : links.isError ? (
             <p className="rounded-lg bg-level-risk-soft px-3 py-2 text-sm text-level-risk" role="alert">담당자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
           ) : options.length === 0 ? (
-            <p className="rounded-lg bg-muted px-3 py-2 text-sm">
-              선택한 환자를 함께 담당하는 사람이 없습니다. 관리자에게 담당 추가를 요청하세요.
-            </p>
+            <div className="space-y-2 rounded-lg bg-muted px-3 py-3 text-sm">
+              <p className="font-semibold">넘길 수 있는 사람이 없습니다</p>
+              <p className="text-muted-foreground">
+                선택한 환자를 함께 담당하는 의료진이 있어야 넘길 수 있습니다.
+                {isAdmin ? " 담당 관리에서 담당자를 먼저 추가하세요." : " 관리자에게 담당자 추가를 요청하세요."}
+              </p>
+              {isAdmin && (
+                <Link to="/admin" onClick={() => onOpenChange(false)} className="inline-block font-semibold text-primary underline-offset-4 hover:underline">
+                  담당 관리에서 담당자 추가하기
+                </Link>
+              )}
+            </div>
           ) : (
             <ReceiverPicker
               options={options}
@@ -133,10 +144,12 @@ export function BulkHandoffDialog({
           {options.length > 0 && <ReasonNoteFields reason={reason} onReason={setReason} note={note} onNote={setNote} />}
 
           <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" disabled={m.isPending} onClick={() => onOpenChange(false)}>취소</Button>
-            <Button type="submit" className="h-11" disabled={!to || plan.eligible.length === 0 || m.isPending}>
-              {m.isPending ? "넘기는 중…" : `${plan.eligible.length}명 넘기기`}
-            </Button>
+            <Button type="button" variant="outline" disabled={m.isPending} onClick={() => onOpenChange(false)}>{options.length > 0 ? "취소" : "닫기"}</Button>
+            {options.length > 0 && (
+              <Button type="submit" className="h-11" disabled={!to || plan.eligible.length === 0 || m.isPending}>
+                {m.isPending ? "넘기는 중…" : `${plan.eligible.length}명 넘기기`}
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>
