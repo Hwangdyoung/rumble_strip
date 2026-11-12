@@ -47,7 +47,7 @@ type Tab = "patients" | "staff";
 /**
  * 담당 관리. 의료진·환자가 많아져도 쓰도록 표(의료진 = 열) 대신 탭 2개로 나눈다.
  * - 환자별: 환자 한 줄에 담당자 이름표, 이름 검색으로 추가, 여러 환자에 한 번에 배정, 연락 담당
- * - 의료진별: 역할·관리자 설정, 담당 환자 펼쳐 보기·추가·해제, 새로 가입한 사람 먼저
+ * - 의료진별: 계정 만들기, 역할·관리자 설정, 담당 환자 펼쳐 보기·추가·해제, 새 계정 먼저
  */
 function AdminContent({ myId }: { myId: string }) {
   const qc = useQueryClient();
@@ -128,7 +128,7 @@ function AdminContent({ myId }: { myId: string }) {
           >
             {t.label} <span className="tabular-nums opacity-80">{t.count}</span>
             {t.warn > 0 && (
-              <span className="ml-1.5 rounded-full bg-level-risk px-1.5 py-0.5 text-xs text-primary-foreground tabular-nums" aria-label={t.id === "patients" ? `담당 미배정 ${t.warn}명` : `새로 가입 ${t.warn}명`}>
+              <span className="ml-1.5 rounded-full bg-level-risk px-1.5 py-0.5 text-xs text-primary-foreground tabular-nums" aria-label={t.id === "patients" ? `담당 미배정 ${t.warn}명` : `새 계정 ${t.warn}명`}>
                 {t.warn}
               </span>
             )}
@@ -158,6 +158,7 @@ function AdminContent({ myId }: { myId: string }) {
             onAdmin={(staffId, on) => upd.mutate({ staffId, is_admin: on })}
             onLink={(patientId, staffId) => link.mutate({ patientId, staffId, on: true })}
             onUnlink={(patientId, staffId) => link.mutate({ patientId, staffId, on: false })}
+            onCreated={refresh}
           />
         )}
       </section>

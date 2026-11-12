@@ -93,6 +93,8 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
 
     const { data, error } = await supabase.auth.getClaims(token);
     if (error || !data?.claims) {
+      // 실패 이유만 서버 터미널에 남긴다(토큰 값은 찍지 않음). 예: 서버의 SUPABASE_URL이 로그인한 프로젝트와 다르면 서명 확인 실패
+      console.error(`[Supabase] 로그인 확인 실패: ${error?.message ?? 'claims 없음'} (서버 SUPABASE_URL 호스트: ${new URL(SUPABASE_URL!).host})`);
       throw new Error('Unauthorized: Invalid token');
     }
 

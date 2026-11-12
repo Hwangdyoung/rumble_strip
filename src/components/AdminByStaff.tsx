@@ -3,6 +3,7 @@ import { ChevronDown, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { NamePicker, type PickItem } from "@/components/NamePicker";
+import { CreateStaffAccount } from "@/components/CreateStaffAccount";
 import { filterStaffRows, type PatientItem, type StaffRow } from "@/lib/assignments";
 import type { Workload } from "@/lib/workload";
 import { STAFF_ROLES, type StaffRole } from "@/lib/queries";
@@ -10,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * 담당 관리 '의료진별' 탭: 의료진 한 줄에 역할·관리자·맡은 환자 수. 펼치면 담당 환자를 보고 추가·해제한다.
- * 새로 가입한 사람(담당 0명, 관리자 아님)은 맨 위에 '새로 가입'으로 보인다.
+ * 새 계정(담당 0명, 관리자 아님)은 맨 위에 '새 계정'으로 보인다. 계정은 '의료진 계정 만들기'로 만든다(회원가입 없음).
  */
 export function AdminByStaff({
   rows,
@@ -22,6 +23,7 @@ export function AdminByStaff({
   onAdmin,
   onLink,
   onUnlink,
+  onCreated,
 }: {
   rows: StaffRow[];
   patients: PatientItem[];
@@ -33,6 +35,8 @@ export function AdminByStaff({
   onAdmin: (staffId: string, on: boolean) => void;
   onLink: (patientId: string, staffId: string) => void;
   onUnlink: (patientId: string, staffId: string) => void;
+  /** 계정을 만든 뒤 목록 새로고침 */
+  onCreated: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [role, setRole] = useState("");
@@ -50,11 +54,12 @@ export function AdminByStaff({
           <option value="">역할 전체</option>
           {STAFF_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
-        {newCount > 0 && <span className="text-sm font-semibold text-level-risk">새로 가입 {newCount}명: 역할과 담당 환자를 정해 주세요</span>}
+        {newCount > 0 && <span className="text-sm font-semibold text-level-risk">새 계정 {newCount}명: 담당 환자를 정해 주세요</span>}
         <span className="ml-auto text-sm text-muted-foreground">{shown.length}/{rows.length}명 표시</span>
+        <CreateStaffAccount disabled={busy} onCreated={onCreated} />
       </div>
       <p className="text-sm text-muted-foreground">
-        새로 가입한 사람은 이름만 입력하면 '상담원'으로 시작합니다. 역할과 관리자 권한은 여기서 관리자만 바꿉니다.
+        회원가입은 받지 않습니다. 계정은 '의료진 계정 만들기'로 만들고, 역할과 관리자 권한은 여기서 관리자만 바꿉니다.
         상담원은 연락 업무에 필요한 정보(단계·접속 여부·연락 도우미)만 봅니다.
       </p>
 
@@ -76,7 +81,7 @@ export function AdminByStaff({
                   <span>
                     <span className="font-semibold">{s.name}</span>
                     {s.id === myId && <span className="ml-1.5 text-xs text-muted-foreground">(나)</span>}
-                    {s.isNew && <span className="ml-1.5 rounded-full bg-level-caution-soft px-2 py-0.5 text-xs font-semibold text-level-caution-ink">새로 가입</span>}
+                    {s.isNew && <span className="ml-1.5 rounded-full bg-level-caution-soft px-2 py-0.5 text-xs font-semibold text-level-caution-ink">새 계정</span>}
                     <span className="block text-sm text-muted-foreground">
                       담당 환자 {s.patientIds.length}명{w ? ` · 연락 담당 ${w.patients}명 · 오늘 할 일 ${w.todo}` : ""}
                     </span>

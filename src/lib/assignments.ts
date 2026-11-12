@@ -27,7 +27,7 @@ export interface PatientRow extends PatientItem {
 
 export interface StaffRow extends StaffItem {
   patientIds: string[];
-  /** 아직 담당 환자가 없고 관리자도 아님: 새로 가입해 배정을 기다리는 사람 */
+  /** 아직 담당 환자가 없고 관리자도 아님: 새 계정이라 배정을 기다리는 사람 */
   isNew: boolean;
 }
 

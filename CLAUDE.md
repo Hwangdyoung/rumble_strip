@@ -40,6 +40,8 @@ AI는 진단·처방을 바꾸지 않는 참고용 보조 도구다. 모든 UI �
   배포 사이트에서 동작을 확인했다(사용자 확인).
 - 2026-11-12: 역할별 접근 제한(SQL 009, 상담원은 연락 업무 정보만, 아래 '역할별 접근 제한' 절)과 담당 관리 화면 개선
   (환자별·의료진별 탭)을 `main`에 올렸고 배포 사이트에서 확인했다. 시험 상담원 계정 '황도영'(강민준·김하늘 담당).
+- 2026-11-12: 회원가입 막기(코드). 로그인 화면에서 가입을 뺐고, 관리자가 담당 관리 '의료진별' 탭 '의료진 계정 만들기'로
+  계정(아이디@rumble-strip.test, 처음 비밀번호, 이름·역할)을 만든다. DB 변경 없음. Supabase에서 가입 끄기는 사용자가 할 일(아래 '남은 일').
 - 페르소나 평가 보고서(비공개 claude.ai 페이지): 2차 https://claude.ai/artifact/5aLLtQXDapyRmd48AN5cxe ,
   3차 https://claude.ai/artifact/RLd98tWuejUSiEuTUnjGeu , 4차 https://claude.ai/artifact/FHF6qGMnUTewRpvwhmf4WL
 
@@ -76,10 +78,15 @@ npm run format  # prettier
   '연락 기록하기')는 늘 보이고, 아래는 탭 5개로 한 화면씩 옆으로 넘긴다(탭 줄 sticky, 보던 탭은 다른 환자에서도 유지):
   연락 도우미(`ResponseGuide.tsx`) / 경과 요약(AI 요약·핵심 지표·위험 이유·점수 구성) / 그래프 / 캘린더 /
   연락 이력(`ContactHistory.tsx`: 새로 나빠짐·연락 기록·넘긴 기록 시간 순, 새로 나빠짐 줄에서 결과 기록). 넘김 효과는 `styles.css`의 `.tab-slide`.
+- 로그인(`auth.tsx`): 로그인만 있다(회원가입 없음, 2026-11-12). 계정이 없으면 관리자에게 요청하라는 안내.
+- 계정 만들기: `CreateStaffAccount.tsx`(창) → 서버 함수 `src/lib/staff-account.server.ts`의 `createStaffAccount`
+  (부른 사람이 관리자인지 확인 → service role로 `auth.admin.createUser`(메일 확인 생략) + `staff` 줄 추가, staff 저장 실패 시 계정 삭제).
+  입력 확인은 `src/lib/staff-account.ts`(아이디 영어 소문자·숫자 3~30자, 비밀번호 8자 이상). 만든 뒤 아이디·처음 비밀번호를 한 번 보여 준다.
+  로컬에서는 `.env`에 service role 키가 없으면 실패한다(배포 사이트에는 `SUPABASE_SERVICE_ROLE_KEY` 있음).
 - 담당 관리(`admin.tsx`, 관리자만): 의료진·환자가 많아져도 쓰도록 탭 2개(2026-11-12, 예전 '의료진 = 열' 표를 바꿈, 배포 사이트에서 확인).
   환자별(`AdminByPatient.tsx`): 환자 한 줄에 담당자 이름표(×로 해제), 이름 검색으로 추가(`NamePicker.tsx`), 환자 검색·담당 미배정만,
   여러 환자를 골라 한 사람에게 한 번에 배정, 연락 담당 선택. 의료진별(`AdminByStaff.tsx`): 이름·역할로 찾기, 역할·관리자 설정,
-  펼쳐서 담당 환자 추가·해제, 업무량 표시, 새로 가입한 사람(담당 0명·관리자 아님)이 맨 위. 계산은 `src/lib/assignments.ts`. DB 변경 없음.
+  펼쳐서 담당 환자 추가·해제, 업무량 표시, 계정 만들기, 새 계정(담당 0명·관리자 아님)이 맨 위('새 계정' 표시). 계산은 `src/lib/assignments.ts`. DB 변경 없음.
 - 담당은 환자 단위 '연락 담당' 하나. '내가 맡기'(관리자·그 환자 담당자 누구나)와 '넘기기'(받는 사람은 그 환자 담당자)는
   DB 함수 `take_patient`, `handoff_patient`(SQL 007)가 권한을 확인하고 처리한다. 처리 안 된 알림 담당자도 함께 바뀐다.
 - 담당자별 업무량(`staff_workload`, SQL 008, `src/lib/workload.ts`): 사람별 건수만 돌려주는 DB 함수(환자 정보 없음).
@@ -213,10 +220,7 @@ npm run format  # prettier
 
 ## 다음에 할 일 (추천 순서, 2026-11-12 기준)
 새 채팅은 "CLAUDE.md 읽고 이어서 하자. 오늘 할 일: (아래 중 하나)"로 시작한다. 큰 작업은 계획을 먼저 보여 주고 확인받는다.
-1. 회원가입 막기 검토 (작음~중간)
-   - 지금은 누구나 가입 가능. 가입하면 이름 입력 후 '상담원'으로 시작하고, 배정 전에는 환자가 0명 보인다(SQL 009).
-   - 선택지: Supabase Auth 설정에서 가입 끄기 + 관리자가 계정 만들기(초대) / 가입은 두되 관리자 승인 전까지 아무 화면도 안 보이게.
-   - `auth.tsx`의 가입 화면, 담당 관리 '의료진별' 탭의 '새로 가입' 표시와 연결된다.
+1. (완료, 2026-11-12) 회원가입 막기: 코드는 끝. Supabase에서 가입 끄기·배포 사이트 확인은 '남은 일' 참고.
 2. 5차 페르소나 평가 (중간, 코드 변경 없음)
    - 같은 60명(`/Users/hwangdoyoung/Desktop/personas.csv`), 자료는 `../페르소나 평가/`(eval4.py·eval4.json·build_report4.py 참고).
    - 4차 이후 바뀐 것: 담당자별 업무량, 역할별 접근 제한(상담원 화면), 담당 관리 탭. 4차의 '더 필요한 것'(eval4.json의 need) 해결 여부를 본다.
@@ -243,7 +247,8 @@ npm run format  # prettier
   Vercel 화면에서 'deprecated, Schedules로 옮기라'는 안내가 나온다
 - 예전 시뮬레이터가 실제로 저장한 play_logs·risk_scores 정리 여부 결정(삭제는 사용자 확인 후).
   2026-11-11 기준 alerts는 매일 점검이 만든 3건뿐이었다. play_logs·risk_scores는 확인하지 않았다
-- 회원가입이 열려 있다(가입해도 배정 전에는 아무 환자도 안 보임). 실제 운영 전에는 Supabase에서 가입을 막고 관리자가 계정을 만드는 방식 검토
+- 회원가입 막기 마무리(사용자): 코드 배포 후 Supabase → Authentication → Sign In / Providers에서 'Allow new users to sign up' 끄기.
+  끈 뒤 배포 사이트에서 '의료진 계정 만들기'로 시험 계정을 만들어 로그인되는지 확인. 확인 전까지는 API로 직접 가입이 가능하다.
 - 역할별 접근 제한은 구현했다(아래). 실제 운영 전 병원 개인정보 담당 확인 필요
 - 대응 가이드 문구 현장 검토, 관리자가 문구를 화면에서 고치는 기능(DB 필요), 실제 문자 발송 연동 검토
 - Lovable 전용 코드 정리(`lovable-error-reporting.ts`, `previewAuthStorage.ts`, `cron-auth.ts`, `@lovable.dev/vite-tanstack-config`)
