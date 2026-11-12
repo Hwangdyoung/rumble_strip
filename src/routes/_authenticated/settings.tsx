@@ -18,6 +18,7 @@ import { displayLoginId } from "@/lib/login-id";
 import { setPreferences, TEXT_SCALE_MAX, TEXT_SCALE_MIN, TEXT_SCALE_STEP, usePreferences, type ThemePref } from "@/lib/preferences";
 import { fetchAlertExport, myStaffQuery, patientsOverviewQuery } from "@/lib/queries";
 import { RISK_CONFIG, toDateKey } from "@/lib/risk";
+import { canSeeClinical } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
@@ -277,6 +278,9 @@ function AlertSettingsForm() {
 
 function DataSection() {
   const [busy, setBusy] = useState(false);
+  // 상담원은 DB에서 알림을 읽을 수 없어(SQL 009) CSV가 빈 파일이 된다. 버튼 대신 안내만 보여 준다.
+  const { data: me, isSuccess: meReady } = useQuery(myStaffQuery());
+  const clinical = canSeeClinical(me?.staff);
   async function exportCsv() {
     setBusy(true);
     try {
@@ -320,10 +324,18 @@ function DataSection() {
       title="알림 결과 내보내기 (CSV)"
       description="볼 수 있는 환자의 알림과 기록한 결과(회복·이탈·연락 불가)를 엑셀에서 열 수 있는 파일로 받습니다. 점수 기준이 맞는지 검증할 때 씁니다."
     >
-      <Button onClick={exportCsv} disabled={busy} className="h-11">{busy ? "만드는 중…" : "CSV 내려받기"}</Button>
-      <p className="text-xs text-muted-foreground">
-        지금 데이터는 모두 가상 환자입니다. 실제 환자 데이터를 쓰게 되면 파일에 환자 이름이 들어가므로 보관과 공유에 주의해야 합니다.
-      </p>
+      {!meReady ? null : clinical ? (
+        <>
+          <Button onClick={exportCsv} disabled={busy} className="h-11">{busy ? "만드는 중…" : "CSV 내려받기"}</Button>
+          <p className="text-xs text-muted-foreground">
+            지금 데이터는 모두 가상 환자입니다. 실제 환자 데이터를 쓰게 되면 파일에 환자 이름이 들어가므로 보관과 공유에 주의해야 합니다.
+          </p>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          알림 결과 파일은 의료진(의사·간호사·관리자)이 내려받습니다. 필요하면 담당 의료진에게 요청해 주세요.
+        </p>
+      )}
     </Block>
     </>
   );
