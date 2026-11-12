@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { ArrowLeft, Plus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,20 +9,15 @@ import { completeFollowUps, createFollowUp, myStaffQuery, patientDetailQuery, st
 import { asOfFor, computeRisk, riskHistory, weeklySummary, summaryEvidence, CAUSE_ACTION, RISK_CONFIG, toDateKey } from "@/lib/risk";
 import type { RiskLevel, RiskResult } from "@/lib/risk";
 import type { CalendarLog } from "@/lib/calendar";
-import { setAlertStatus, type AlertStatus } from "@/lib/queries";
-import { alertStatusStyle } from "@/components/AlertsBell";
-import { AlertOutcomePicker } from "@/components/AlertOutcome";
-import { AlertAssignee } from "@/components/AlertAssignee";
-import { HandoffButton, HandoffHistory } from "@/components/Handoff";
 import { ResponseGuide } from "@/components/ResponseGuide";
 import { ACTION_MEMO_TEMPLATE, buildGuide } from "@/lib/response-guide";
 import { defaultFollowUpDate } from "@/lib/follow-up";
 import { Input } from "@/components/ui/input";
-import { suggestOutcome } from "@/lib/alert-outcome";
 import { Sparkles } from "lucide-react";
 import { CauseBadge, LevelBadge } from "@/components/LevelBadge";
 import { PlayCalendar } from "@/components/PlayCalendar";
-import { PatientStaffBadges } from "@/components/PatientStaffBadges";
+import { PatientContact } from "@/components/PatientContact";
+import { ContactHistory } from "@/components/ContactHistory";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,6 +29,17 @@ import { aiInputChips, aiSummaryQueryKey, riskToAiInput, fallbackSummary } from 
 const ACTION_TYPES = ["전화 상담", "문자", "기타"] as const;
 // 그래프 툴팁: 다크 모드에서도 읽히도록 테마 색을 쓴다
 const TOOLTIP_STYLE = { background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--popover-foreground)" };
+
+const TABS = [
+  { id: "guide", label: "연락 도우미" },
+  { id: "overview", label: "경과 요약" },
+  { id: "charts", label: "그래프" },
+  { id: "calendar", label: "캘린더" },
+  { id: "history", label: "연락 이력" },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
+/** 다른 환자를 눌러도 보던 탭을 유지한다 (새로고침하면 처음 탭) */
+let lastTab: TabId = "guide";
 
 function Card({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
@@ -98,7 +104,7 @@ function PatientDetailContent({
   weeks: ReturnType<typeof weeklySummary>;
   asOf: Date;
   logs: CalendarLog[];
-  actions: Array<{ id: string; action_type: string; memo: string | null; created_at: string }>;
+  actions: Array<{ id: string; action_type: string; memo: string | null; created_at: string; staff_id?: string | null }>;
   followUps: Array<{ id: string; due_date: string; assignee_id: string | null; note: string }>;
   alerts: Array<{ id: string; message: string; status: string; created_at: string; outcome: string; outcome_note: string | null; alert_score: number | null; alert_level: string | null; assignee_id: string | null }>;
 }) {
@@ -116,6 +122,24 @@ function PatientDetailContent({
     unreachable: alerts.some((a) => a.status !== "조치완료" && a.outcome === "연락 불가"),
     staffName: me?.staff?.name ?? null,
   });
+  const [tab, setTab] = useState<TabId>(lastTab);
+  const [slideDir, setSlideDir] = useState<"left" | "right">("left");
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const tabIndex = TABS.findIndex((t) => t.id === tab);
+  const historyCount = alerts.length + actions.length;
+  const goTab = (next: TabId) => {
+    if (next === tab) return;
+    setSlideDir(TABS.findIndex((t) => t.id === next) > tabIndex ? "left" : "right");
+    setTab(next);
+    lastTab = next;
+    // 아래로 내려 본 상태면 새 탭의 처음(탭 바로 아래)으로 올린다
+    const el = sentinelRef.current;
+    const sc = el?.closest(".overflow-y-auto");
+    if (el && sc) {
+      const d = el.getBoundingClientRect().top - sc.getBoundingClientRect().top;
+      if (d < 0) sc.scrollTop += d;
+    }
+  };
   const [actionOpen, setActionOpen] = useState(false);
   const [actionPreset, setActionPreset] = useState<ActionPreset | null>(null);
   const openActionWith = (kind: "call" | "sms") => {
@@ -141,24 +165,23 @@ function PatientDetailContent({
         <ArrowLeft className="size-4" /> 대시보드로
       </Link>}
 
-      <div className={cn("flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-card", !panel && "sm:flex-row sm:items-center sm:justify-between")}>
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold sm:text-3xl">{patient.name}</h1>
-            <LevelBadge level={risk.level} />
-          </div>
-          <p className="mt-1 text-muted-foreground">
-            {patient.age}세 · 처방 시작 {patient.prescription_start_date} · {patient.prescription_weeks}주 / 주 {patient.weekly_target_days}회 / {patient.session_target_minutes}분
-          </p>
-          <PatientStaffBadges patientId={patient.id} />
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="text-right">
-            <div className="text-sm text-muted-foreground">위험 점수</div>
-            <div className="text-4xl font-bold tabular-nums">{risk.score}<span className="text-lg text-muted-foreground">/100</span></div>
+      {/* 맨 위: 누구인지, 왜 연락해야 하는지, 누가 언제 연락하는지 */}
+      <div className="space-y-3 rounded-2xl border bg-card p-5 shadow-card">
+        <div className={cn("flex flex-col gap-4", !panel && "sm:flex-row sm:items-start sm:justify-between")}>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold sm:text-3xl">{patient.name}</h1>
+              <LevelBadge level={risk.level} />
+              <span className="text-lg font-bold tabular-nums">{risk.score}<span className="text-sm font-normal text-muted-foreground">/100</span></span>
+            </div>
+            <p className="mt-1 font-medium">{risk.reasons[0]}</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {patient.age}세 · 처방 시작 {patient.prescription_start_date} · {patient.prescription_weeks}주 / 주 {patient.weekly_target_days}회 / {patient.session_target_minutes}분
+              {followUps[0] && <> · <span className="font-medium text-foreground">다음 연락 {Number(followUps[0].due_date.slice(5, 7))}/{Number(followUps[0].due_date.slice(8))}</span></>}
+            </p>
           </div>
           {risk.level === "정상" ? (
-            <span className="inline-flex h-12 items-center rounded-xl bg-level-normal-soft px-4 font-semibold text-level-normal">경과 관찰 중</span>
+            <span className="inline-flex h-12 shrink-0 items-center rounded-xl bg-level-normal-soft px-4 font-semibold text-level-normal">경과 관찰 중</span>
           ) : (
             <ActionDialog
               patientId={patient.id}
@@ -173,70 +196,53 @@ function PatientDetailContent({
             />
           )}
         </div>
+        <PatientContact patientId={patient.id} />
       </div>
 
-      <ScoreComposition risk={risk} />
+      {/* 아래: 탭으로 나눠 한 번에 한 화면씩 (옆으로 넘김) */}
+      <div ref={sentinelRef} aria-hidden />
+      <div
+        role="tablist"
+        aria-label="환자 상세 보기"
+        className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto rounded-xl border bg-card p-1 shadow-card"
+        onKeyDown={(e) => {
+          if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+          const next = (tabIndex + (e.key === "ArrowRight" ? 1 : -1) + TABS.length) % TABS.length;
+          goTab(TABS[next]!.id);
+          (e.currentTarget.children[next] as HTMLElement | undefined)?.focus();
+        }}
+      >
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls="patient-tabpanel"
+            tabIndex={tab === t.id ? 0 : -1}
+            onClick={() => goTab(t.id)}
+            className={cn(
+              "flex-1 shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition",
+              tab === t.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            {t.label}
+            {t.id === "history" && historyCount > 0 && <span className="ml-1 tabular-nums opacity-80">{historyCount}</span>}
+          </button>
+        ))}
+      </div>
 
-      <Card title="핵심 지표">
-        <div className={cn("grid grid-cols-2 gap-3", !panel && "md:grid-cols-4")}>
-          <Stat label="연속 미접속" value={`${risk.metrics.currentGap}일`} hint={risk.metrics.lastPlayDate ? `마지막 접속 ${risk.metrics.lastPlayDate.slice(5)}` : "기록 없음"} />
-          <Stat label="진행 회차" value={`${risk.metrics.sessionsDone}/${risk.metrics.sessionsExpected}회`} hint="처방 기준 대비" />
-          <Stat
-            label="최근 정확도"
-            value={risk.metrics.recentAccuracy == null ? "—" : `${Math.round(risk.metrics.recentAccuracy)}%`}
-            hint={risk.metrics.accuracyDrop >= 1 ? `처음 대비 -${Math.round(risk.metrics.accuracyDrop)}%p` : undefined}
-          />
-          <Stat
-            label="평균 세션"
-            value={risk.metrics.recentAvgMinutes == null ? "—" : `${Math.round(risk.metrics.recentAvgMinutes)}분`}
-            hint={`목표 ${patient.session_target_minutes}분`}
-          />
-        </div>
-      </Card>
-
-      <div className={cn("grid min-w-0 gap-6", !panel && "lg:grid-cols-3")}>
-        <section className={cn("rounded-2xl border border-teal bg-accent p-5 shadow-card", !panel && "lg:col-span-3")}>
-          <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-accent-foreground">
-            <Sparkles className="size-5" /> AI 경과 요약
-          </h2>
-          {/* AI 요약 텍스트: 로딩 중 / 성공 / 실패(폴백) */}
-          {aiSummaryQuery.isPending ? (
-            <p className="text-lg text-muted-foreground animate-pulse">AI 요약을 생성하는 중…</p>
-          ) : (
-            <div className="flex flex-wrap items-start gap-2">
-              <p className="text-lg flex-1">
-                {aiSummaryQuery.isError
-                  ? fallbackSummary(risk)
-                  : (aiSummaryQuery.data ?? fallbackSummary(risk))}
-              </p>
-              <span className="shrink-0 mt-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                {aiSummaryQuery.isError ? "규칙 기반 요약" : "AI가 생성한 요약"}
-              </span>
-            </div>
-          )}
-          {!aiSummaryQuery.isPending && (
-            <div className="mt-3">
-              <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-                {aiSummaryQuery.isError ? "요약에 쓰인 수치" : "AI에 전달한 수치"}
-              </p>
-              <ul className="flex flex-wrap gap-1.5" aria-label="요약 근거 수치">
-                {(aiSummaryQuery.isError ? summaryEvidence(risk).map((e) => e.chip) : aiInputChips(aiInput)).map((c) => (
-                  <li key={c} className="rounded-full border bg-card px-2.5 py-0.5 text-xs font-medium tabular-nums">{c}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {risk.cause && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-base">
-              <span className="font-semibold">추정 원인</span> <CauseBadge cause={risk.cause} />
-              <span className="text-muted-foreground">· 권장 조치: {CAUSE_ACTION[risk.cause]} 자세한 순서와 연락 문장은 아래 '대응 가이드'에 있습니다.</span>
-            </div>
-          )}
-          <p className="mt-2 text-xs text-muted-foreground">진단이나 처방 변경이 아닌 참고용 보조 정보입니다.</p>
-        </section>
-
-        <div className={cn("min-w-0", !panel && "lg:col-span-3")}>
-          <ResponseGuide
+      <div
+        key={tab}
+        id="patient-tabpanel"
+        role="tabpanel"
+        aria-labelledby={`tab-${tab}`}
+        data-dir={slideDir}
+        className="tab-slide @container space-y-6"
+      >
+        {tab === "guide" && (
+      <ResponseGuide
             guide={guide}
             sheet={{
               patientName: patient.name,
@@ -258,19 +264,83 @@ function PatientDetailContent({
             normal={risk.level === "정상"}
             onRecord={openActionWith}
           />
-        </div>
+        )}
 
-        <Card title="위험 이유" className={cn("min-w-0", !panel && "lg:col-span-1")}>
+        {tab === "overview" && (
+          <>
+      <section className="rounded-2xl border border-teal bg-accent p-5 shadow-card">
+        <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-accent-foreground">
+          <Sparkles className="size-5" /> AI 경과 요약
+        </h2>
+        {/* AI 요약 텍스트: 로딩 중 / 성공 / 실패(폴백) */}
+        {aiSummaryQuery.isPending ? (
+          <p className="text-lg text-muted-foreground animate-pulse">AI 요약을 생성하는 중…</p>
+        ) : (
+          <div className="flex flex-wrap items-start gap-2">
+            <p className="text-lg flex-1">
+            {aiSummaryQuery.isError
+              ? fallbackSummary(risk)
+              : (aiSummaryQuery.data ?? fallbackSummary(risk))}
+            </p>
+            <span className="shrink-0 mt-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            {aiSummaryQuery.isError ? "규칙 기반 요약" : "AI가 생성한 요약"}
+            </span>
+          </div>
+        )}
+        {!aiSummaryQuery.isPending && (
+          <div className="mt-3">
+            <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+            {aiSummaryQuery.isError ? "요약에 쓰인 수치" : "AI에 전달한 수치"}
+            </p>
+            <ul className="flex flex-wrap gap-1.5" aria-label="요약 근거 수치">
+            {(aiSummaryQuery.isError ? summaryEvidence(risk).map((e) => e.chip) : aiInputChips(aiInput)).map((c) => (
+              <li key={c} className="rounded-full border bg-card px-2.5 py-0.5 text-xs font-medium tabular-nums">{c}</li>
+            ))}
+            </ul>
+          </div>
+        )}
+        {risk.cause && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-base">
+            <span className="font-semibold">추정 원인</span> <CauseBadge cause={risk.cause} />
+            <span className="text-muted-foreground">· 권장 조치: {CAUSE_ACTION[risk.cause]} 연락 순서와 문장은 '연락 도우미' 탭에 있습니다.</span>
+          </div>
+        )}
+        <p className="mt-2 text-xs text-muted-foreground">진단이나 처방 변경이 아닌 참고용 보조 정보입니다.</p>
+      </section>
+            <div className="grid gap-6 @xl:grid-cols-2">
+              <Card title="핵심 지표">
+        <div className="grid grid-cols-2 gap-3">
+          <Stat label="연속 미접속" value={`${risk.metrics.currentGap}일`} hint={risk.metrics.lastPlayDate ? `마지막 접속 ${risk.metrics.lastPlayDate.slice(5)}` : "기록 없음"} />
+          <Stat label="진행 회차" value={`${risk.metrics.sessionsDone}/${risk.metrics.sessionsExpected}회`} hint="처방 기준 대비" />
+          <Stat
+            label="최근 정확도"
+            value={risk.metrics.recentAccuracy == null ? "—" : `${Math.round(risk.metrics.recentAccuracy)}%`}
+            hint={risk.metrics.accuracyDrop >= 1 ? `처음 대비 -${Math.round(risk.metrics.accuracyDrop)}%p` : undefined}
+          />
+          <Stat
+            label="평균 세션"
+            value={risk.metrics.recentAvgMinutes == null ? "—" : `${Math.round(risk.metrics.recentAvgMinutes)}분`}
+            hint={`목표 ${patient.session_target_minutes}분`}
+          />
+        </div>
+              </Card>
+              <Card title="위험 이유">
           <ul className="space-y-2">
             {risk.reasons.map((r) => (
               <li key={r} className="flex gap-2 text-base"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />{r}</li>
             ))}
           </ul>
           <p className="mt-4 text-sm text-muted-foreground">경과 {risk.metrics.elapsedDays}일차 기준 · 규칙 기반 초기 가정치</p>
-        </Card>
+              </Card>
+            </div>
+            <ScoreComposition risk={risk} />
+          </>
+        )}
 
-        <Card title="위험 점수 추이" className={cn("min-w-0", !panel && "lg:col-span-2")}>
-          <div className="h-64 w-full min-w-0">
+        {tab === "charts" && (
+          <>
+            <Card title="위험 점수 추이">
+          <div className="h-56 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={history} margin={{ left: -20, right: 8, top: 8 }}>
                 <defs>
@@ -293,14 +363,12 @@ function PatientDetailContent({
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </Card>
-      </div>
-
-      <Card title="최근 4주 플레이 기록">
-        <div className={cn("grid min-w-0 gap-6", !panel && "md:grid-cols-2")}>
+            </Card>
+            <Card title="최근 4주 플레이 기록">
+              <div className="grid min-w-0 gap-6 @lg:grid-cols-2">
           <div>
             <p className="mb-2 text-sm font-medium text-muted-foreground">주별 접속 일수 (목표 {patient.weekly_target_days}일)</p>
-            <div className="h-56 w-full min-w-0">
+            <div className="h-44 w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={weeks} margin={{ left: -20, right: 8, top: 8 }}>
                   <CartesianGrid stroke="var(--border)" vertical={false} />
@@ -315,7 +383,7 @@ function PatientDetailContent({
           </div>
           <div>
             <p className="mb-2 text-sm font-medium text-muted-foreground">평균 세션 시간 (목표 {patient.session_target_minutes}분)</p>
-            <div className="h-56 w-full min-w-0">
+            <div className="h-44 w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={weeks} margin={{ left: -20, right: 8, top: 8 }}>
                   <CartesianGrid stroke="var(--border)" vertical={false} />
@@ -329,38 +397,37 @@ function PatientDetailContent({
             </div>
           </div>
         </div>
-      </Card>
-
-      <Card title="플레이 캘린더">
-        <PlayCalendar patient={patient} logs={logs} actions={actions} alerts={alerts} />
-      </Card>
-
-      <Card title="알림">
-        {alerts.length === 0 ? (
-          <p className="text-muted-foreground">이 환자의 알림이 없습니다.</p>
-        ) : (
-          <ul className="divide-y">
-            {alerts.map((a) => <AlertRow key={a.id} alert={a} patientId={patient.id} logs={logs} />)}
-          </ul>
+            </Card>
+          </>
         )}
-      </Card>
 
-      <Card title="조치 기록">
-        <FollowUpList patientId={patient.id} items={followUps} />
-        {actions.length === 0 ? (
-          <p className="text-muted-foreground">아직 기록된 조치가 없습니다.</p>
-        ) : (
-          <ul className="divide-y">
-            {actions.map((a) => (
-              <li key={a.id} className={cn("flex flex-col gap-1 break-words py-3", !panel && "sm:flex-row sm:gap-4")}>
-                <span className="w-24 shrink-0 font-semibold text-primary">{a.action_type}</span>
-                <span className="flex-1">{a.memo || "메모 없음"}</span>
-                <span className="text-sm text-muted-foreground">{new Date(a.created_at).toLocaleString("ko-KR")}</span>
-              </li>
-            ))}
-          </ul>
+        {tab === "calendar" && (
+          <Card title="플레이 캘린더">
+            <PlayCalendar patient={patient} logs={logs} actions={actions} alerts={alerts} />
+          </Card>
         )}
-      </Card>
+
+        {tab === "history" && (
+          <Card title="연락 이력">
+            <FollowUpList patientId={patient.id} items={followUps} />
+            <ContactHistory patientId={patient.id} alerts={alerts} actions={actions} logs={logs} />
+          </Card>
+        )}
+
+        {/* 앞뒤 탭으로 넘기기 */}
+        <div className="flex items-center justify-between gap-2 border-t pt-4">
+          {tabIndex > 0 ? (
+            <Button variant="ghost" onClick={() => goTab(TABS[tabIndex - 1]!.id)}>
+              <ChevronLeft className="size-4" /> {TABS[tabIndex - 1]!.label}
+            </Button>
+          ) : <span />}
+          {tabIndex < TABS.length - 1 && (
+            <Button variant="ghost" onClick={() => goTab(TABS[tabIndex + 1]!.id)}>
+              {TABS[tabIndex + 1]!.label} <ChevronRight className="size-4" />
+            </Button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -532,13 +599,13 @@ function ActionDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="lg" className="h-12"><Plus /> 조치 기록하기</Button>
+        <Button size="lg" className="h-12 shrink-0"><Plus /> 연락 기록하기</Button>
       </DialogTrigger>
       <DialogContent className="w-[calc(100%-2rem)] max-w-lg" aria-describedby={undefined}>
-        <DialogHeader><DialogTitle className="text-xl">조치 기록하기</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle className="text-xl">연락 기록하기</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-base">조치 유형</Label>
+            <Label className="text-base">연락 방법</Label>
             <div className="flex gap-2">
               {ACTION_TYPES.map((t) => (
                 <Button
@@ -582,59 +649,5 @@ function ActionDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-const STATUSES: AlertStatus[] = ["미확인", "확인", "조치완료"];
-
-function AlertRow({ alert, patientId, logs }: { alert: { id: string; message: string; status: string; created_at: string; outcome: string; outcome_note: string | null; alert_score: number | null; alert_level: string | null; assignee_id: string | null }; patientId: string; logs: CalendarLog[] }) {
-  const qc = useQueryClient();
-  const m = useMutation({
-    mutationFn: (s: AlertStatus) => setAlertStatus(alert.id, s),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["patient", patientId] });
-      qc.invalidateQueries({ queryKey: ["alerts"] });
-    },
-    onError: () => toast.error("상태를 바꾸지 못했습니다."),
-  });
-  return (
-    <li className="flex flex-col gap-3 py-3">
-      <div className="flex-1">
-        <p>{alert.message}</p>
-        <p className="text-sm text-muted-foreground">
-          {new Date(alert.created_at).toLocaleString("ko-KR")}
-          {alert.alert_score != null && ` · 알림 당시 ${alert.alert_score}점${alert.alert_level ? ` (${alert.alert_level})` : ""}`}
-        </p>
-      </div>
-      <div className="flex gap-1">
-        {STATUSES.map((s) => (
-          <Button
-            variant="outline"
-            key={s}
-            disabled={m.isPending}
-            onClick={() => m.mutate(s)}
-            className={cn(
-              "h-auto rounded-full border px-3 py-1.5 text-sm font-medium",
-              alert.status === s ? cn(alertStatusStyle[s], "border-transparent") : "text-muted-foreground hover:bg-muted",
-            )}
-          >
-            {s}
-          </Button>
-        ))}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <AlertAssignee alertId={alert.id} patientId={patientId} assigneeId={alert.assignee_id} />
-        {alert.status !== "조치완료" && <HandoffButton alertId={alert.id} patientId={patientId} assigneeId={alert.assignee_id} />}
-      </div>
-      <HandoffHistory alertId={alert.id} patientId={patientId} />
-      <AlertOutcomePicker
-        alertId={alert.id}
-        patientId={patientId}
-        outcome={alert.outcome}
-        note={alert.outcome_note}
-        suggestion={alert.outcome === "미정" ? suggestOutcome(alert.created_at, logs) : null}
-        withNote
-      />
-    </li>
   );
 }

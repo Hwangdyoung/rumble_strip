@@ -119,6 +119,31 @@ begin
       res := res || format('11. 담당 아닌 환자 다음 연락 일정 추가: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
     end;
 
+    -- 12) 담당 아닌 환자를 '내가 맡기' (007 이후)
+    begin
+      perform public.take_patient(p3);
+      res := res || '12. 담당 아닌 환자 내가 맡기: 막히지 않음 (문제)' || E'\n';
+    exception when others then
+      res := res || format('12. 담당 아닌 환자 내가 맡기: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
+    end;
+
+    -- 13) 담당 환자를 담당자가 아닌 사람에게 넘기기 (007 이후)
+    begin
+      perform public.handoff_patient(p1, fake, '인계', '');
+      res := res || '13. 담당자가 아닌 사람에게 넘기기: 막히지 않음 (문제)' || E'\n';
+    exception when others then
+      res := res || format('13. 담당자가 아닌 사람에게 넘기기: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
+    end;
+
+    -- 14) 자기 담당 환자는 맡을 수 있어야 함 (007 이후)
+    begin
+      perform public.take_patient(p1);
+      select count(*) into n from public.patient_staff where patient_id = p1 and staff_id = admin_id and is_contact;
+      res := res || format('14. 자기 담당 환자 내가 맡기: 연락 담당 %s명 (기대: 1)', n) || E'\n';
+    exception when others then
+      res := res || format('14. 자기 담당 환자 내가 맡기: 실패 (문제, 코드 %s)', sqlstate) || E'\n';
+    end;
+
     -- 여기까지의 변경을 모두 되돌리기 위해 일부러 예외를 낸다 (결과 문장을 함께 실어 보냄)
     raise exception 'RESULT:%', res;
   exception when others then

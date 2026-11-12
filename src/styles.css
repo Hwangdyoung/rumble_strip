@@ -255,19 +255,6 @@
     transition: none;
   }
 }
-/* 대시보드 '오늘 업무' 패널: 탭 전환 시 옆으로 슬라이드, 높이는 보이는 탭에 맞춤 */
-.today-panel-viewport {
-  transition: height 250ms ease-out;
-}
-.today-panel-track {
-  transition: transform 300ms ease-out;
-}
-@media (prefers-reduced-motion: reduce) {
-  .today-panel-viewport,
-  .today-panel-track {
-    transition: none;
-  }
-}
 
 /* 글자 크기 (설정 → 화면): html의 font-size(%)와 --text-scale을 preferences.ts가 정한다 */
 
@@ -279,4 +266,43 @@ html[data-motion="reduce"] *::after {
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
+}
+
+/* 환자 상세 탭 넘김: 오른쪽 탭으로 가면 오른쪽에서, 왼쪽 탭으로 가면 왼쪽에서 밀려 들어온다 */
+.tab-slide {
+  animation: tab-slide-left 220ms ease-out;
+}
+
+.tab-slide[data-dir="right"] {
+  animation-name: tab-slide-right;
+}
+
+@keyframes tab-slide-left {
+  from {
+    transform: translateX(1.5rem);
+    opacity: 0;
+  }
+
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes tab-slide-right {
+  from {
+    transform: translateX(-1.5rem);
+    opacity: 0;
+  }
+
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-slide {
+    animation: none;
+  }
 }

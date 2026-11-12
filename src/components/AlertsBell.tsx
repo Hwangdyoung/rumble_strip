@@ -7,8 +7,6 @@ import { alertsQuery, setAlertStatus } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { AlertOutcomePicker } from "@/components/AlertOutcome";
-import { AlertAssignee } from "@/components/AlertAssignee";
 
 export const alertStatusStyle: Record<string, string> = {
   미확인: "bg-level-risk-soft text-level-risk",
@@ -49,25 +47,26 @@ export function AlertsBell() {
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(92vw,380px)] p-0">
-        <div className="border-b px-4 py-3 font-bold">알림 <span className="text-sm font-medium text-muted-foreground">미확인 {unread}건</span></div>
+        <div className="border-b px-4 py-3">
+          <p className="font-bold">새로 나빠진 환자 <span className="text-sm font-medium text-muted-foreground">안 본 것 {unread}건</span></p>
+          <p className="text-xs text-muted-foreground">매일 점검에서 단계가 올라가거나 점수가 크게 오른 환자입니다. 누르면 환자 상세가 열립니다.</p>
+        </div>
         <ul className="max-h-96 divide-y overflow-y-auto">
-          {alerts.length === 0 && <li className="p-6 text-center text-sm text-muted-foreground">알림이 없습니다.</li>}
+          {alerts.length === 0 && <li className="p-6 text-center text-sm text-muted-foreground">새로 나빠진 환자가 없습니다.</li>}
           {alerts.map((a) => (
             <li key={a.id} className={cn(a.status === "미확인" && "bg-secondary")}>
-              <Button variant="ghost" onClick={() => openAlert(a)} className="block h-auto w-full whitespace-normal rounded-none px-4 pb-2 pt-3 text-left font-normal hover:bg-muted">
+              <Button variant="ghost" onClick={() => openAlert(a)} className="block h-auto w-full whitespace-normal rounded-none px-4 py-3 text-left font-normal hover:bg-muted">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">{a.patients?.name}</span>
-                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", alertStatusStyle[a.status])}>{a.status}</span>
+                  {a.status === "미확인" ? (
+                    <span className="rounded-full bg-level-risk-soft px-2 py-0.5 text-xs font-semibold text-level-risk">새로</span>
+                  ) : a.status === "조치완료" ? (
+                    <span className="rounded-full bg-level-normal-soft px-2 py-0.5 text-xs font-semibold text-level-normal">연락함</span>
+                  ) : null}
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{a.message}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{new Date(a.created_at).toLocaleString("ko-KR")}</p>
               </Button>
-              <div className="px-4 pb-3">
-                <div className="space-y-2">
-                  <AlertAssignee alertId={a.id} patientId={a.patient_id} assigneeId={a.assignee_id} compact />
-                  <AlertOutcomePicker alertId={a.id} patientId={a.patient_id} outcome={a.outcome} suggestion={a.suggestion} compact />
-                </div>
-              </div>
             </li>
           ))}
         </ul>

@@ -61,7 +61,7 @@ export type Database = {
       }
       alert_handoffs: {
         Row: {
-          alert_id: string
+          alert_id: string | null
           created_at: string
           from_staff: string | null
           id: string
@@ -71,7 +71,7 @@ export type Database = {
           to_staff: string
         }
         Insert: {
-          alert_id: string
+          alert_id?: string | null
           created_at?: string
           from_staff?: string | null
           id?: string
@@ -81,7 +81,7 @@ export type Database = {
           to_staff: string
         }
         Update: {
-          alert_id?: string
+          alert_id?: string | null
           created_at?: string
           from_staff?: string | null
           id?: string
@@ -436,7 +436,9 @@ export type Database = {
     }
     Functions: {
       can_see_patient: { Args: { pid: string }; Returns: boolean }
+      handoff_patient: { Args: { pid: string; to_staff: string; reason: string; note?: string }; Returns: undefined }
       is_admin: { Args: never; Returns: boolean }
+      take_patient: { Args: { pid: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

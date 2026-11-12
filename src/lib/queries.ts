@@ -324,3 +324,38 @@ export async function completeFollowUps(ids: string[]) {
   const { error } = await supabase.from("follow_ups").update({ done_at: new Date().toISOString() }).in("id", ids);
   if (error) throw error;
 }
+
+// ─── 재배치: 환자 단위 담당·오늘 연락할 환자 ────────────────────────────────
+
+/** 내가 맡기: 환자의 연락 담당을 나로 (DB 함수 take_patient, SQL 007) */
+export async function takePatient(patientId: string) {
+  const { error } = await supabase.rpc("take_patient", { pid: patientId });
+  if (error) throw error;
+}
+
+/** 넘기기: 환자의 연락 담당을 다른 담당자에게, 기록을 남김 (DB 함수 handoff_patient, SQL 007) */
+export async function handoffPatient(v: { patientId: string; toStaff: string; reason: HandoffReason; note: string }) {
+  const { error } = await supabase.rpc("handoff_patient", { pid: v.patientId, to_staff: v.toStaff, reason: v.reason, note: v.note.trim() });
+  if (error) throw error;
+}
+
+/** '오늘 연락할 환자' 목록 재료: 알림, 열린 다음 연락, 마지막 조치, 연락 담당 */
+export const contactListQuery = () =>
+  queryOptions({
+    queryKey: ["alerts", "contact-list"],
+    queryFn: async () => {
+      const [al, fu, ac, ps] = await Promise.all([
+        supabase.from("alerts").select("id, patient_id, created_at, status, outcome, outcome_at"),
+        supabase.from("follow_ups").select("patient_id, due_date").is("done_at", null),
+        supabase.from("actions").select("patient_id, created_at").order("created_at", { ascending: false }),
+        supabase.from("patient_staff").select("patient_id, staff_id").eq("is_contact", true),
+      ]);
+      for (const r of [al, fu, ac, ps]) if (r.error) throw r.error;
+      const lastActionAt: Record<string, string> = {};
+      for (const a of ac.data ?? []) if (!lastActionAt[a.patient_id]) lastActionAt[a.patient_id] = a.created_at;
+      const contactOf: Record<string, string> = {};
+      for (const c of ps.data ?? []) contactOf[c.patient_id] = c.staff_id;
+      return { alerts: al.data ?? [], followUps: fu.data ?? [], lastActionAt, contactOf };
+    },
+    refetchInterval: 60_000,
+  });

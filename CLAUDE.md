@@ -45,40 +45,23 @@ npm run format  # prettier
   `@lovable.dev/vite-tanstack-config`를 쓰고, Nitro 기본 타깃이 Cloudflare라 Vercel 배포 시 조정이 필요할 수 있다.
 - `src/routes/_authenticated/`: 로그인 후 화면. `route.tsx`가 로그인 여부를 확인해 로그인 안 하면
   `/auth`(`src/routes/auth.tsx`)로 보낸다. `patients.$id.tsx`는 예전 주소를 `/dashboard?patient=ID`로 넘기는 리다이렉트다.
-- 대시보드(`dashboard.tsx`), 위에서부터:
-  - '오늘 업무' 패널(`TodayPanel.tsx`): 머리에 매일 점검 상태(`DailyCheck.tsx`의 inline), 탭 3개를 옆으로 슬라이드
-    (휴대폰은 좌우로 밀기, 마지막 탭은 브라우저에 기억). 분할 화면에서는 한 줄로 접힌다.
-    1. 처리할 알림(`TodayWorklist.tsx`, `src/lib/worklist.ts`): 내 담당·미지정·전체·다시 연락 탭, 오래된 순/위험 높은 순,
-       지연 기준(설정, 기본 2일), 넘겨받은 알림 표시, 내 업무량 경고(설정 '하루 처리 가능 알림 수'), 업무 목록 A4 인쇄(`work-sheet.ts`)
-    2. 연락할 환자: 알림 기준 점수 이상이면서 정상이 아닌 환자 = '알림 대상' 목록. 화면을 열 때마다 계산하고 저장하지 않는다.
-       종 아이콘의 알림(`alerts` 테이블)과는 다른 개념이다. 기준은 설정 화면에서 바꾼다(`src/lib/alert-settings.ts`, 브라우저 저장).
-    3. 알림 결과(`AlertOutcome.tsx`의 `AlertOutcomeSummary`, "가상 데이터라 검증 결과가 아님" 문구)
-  - 단계 필터(인원 수 표시)와 환자 목록.
+- 대시보드(`dashboard.tsx`, 2026-11-12 재배치·시안 A): 환자 한 줄 = 할 일 하나, 목록은 하나만.
+  - 위: 요약 숫자 4칸(새로 나빠짐·연락 전·오늘 다시 연락·담당 미지정). 누르면 그 환자만 걸러 보기.
+  - 목록(`ContactList.tsx`, 계산은 `src/lib/contact-list.ts`) 탭: 오늘 연락 / 전체(정상은 '경과 관찰') / 내 담당. 인쇄(`work-sheet.ts`).
+    오늘 연락 = 정상이 아니고 기준 점수 이상 + 새로 나빠짐(처리 안 된 알림) + 오늘까지 다시 연락할 환자.
+    줄마다 '새로 나빠짐'·'오늘 다시 연락' 표시, 상태(다시 연락·연락 전·연락 불가·연락 예정·연락함), 연락 담당. 손이 가야 하는 줄이 먼저.
   - 환자를 누르면 목록이 줄어들고(왼쪽 약 40%) 상세가 옆에서 밀려 들어오는 분할 화면
     (`SplitPatientDetail.tsx`, `styles.css`의 `.dashboard-split`). `?patient=ID`로 상태 유지.
-    - 오른쪽 상세는 헤더 아래에 고정(sticky, 화면 높이에 맞춤)되고 안에서만 스크롤된다.
-    - 모바일(768px 미만)에서는 상세가 전체 화면으로 열린다.
-- 알림 담당자(`AlertAssignee.tsx`): 알림마다 그 환자의 담당자 중 한 명을 고르거나 '내가 맡기'. 담당자가 없는 환자는 안내 문구.
-  관리자가 '담당 관리'에서 환자별 '연락 담당'(환자당 1명)을 정하면 매일 점검이 만든 알림이 자동 배정되고,
-  지정할 때 그 환자의 처리 안 된 미지정 알림도 배정된다. 조치완료가 되면 `resolved_at`을 기록한다.
-- 알림 넘기기(`Handoff.tsx`): 받는 사람(그 환자 담당자), 이유(인계·의사 확인 요청·기타), 메모. 담당자가 바뀌고
-  `alert_handoffs`에 기록이 남는다(수정·삭제 불가).
-- 다음 연락 일정(`follow_ups`, `src/lib/follow-up.ts`): 조치 기록 창에서 예정일을 정한다(기본: 주의 3일·이탈 위험 2일·
-  치료이탈 1일 뒤). 그날 '다시 연락' 탭에 나오고, 완료 처리하거나 다음 조치 기록 때 함께 완료한다. 보호자 안내문에도 들어간다.
-- 헤더 이름표를 누르면 프로필 펼침 메뉴(이름·역할·아이디, 담당 환자 수, 내가 맡은 알림 수, 설정, 로그아웃).
-- 설정(`settings.tsx`, `?section=`): 왼쪽 카테고리 + 오른쪽 상세(휴대폰은 목록 → 상세).
-  계정(이름·역할, 비밀번호) / 화면(테마: 기기 설정·밝게·어둡게, 글자 크기 80~150% 슬라이더, 움직임 줄이기) /
-  업무(알림 기준, 지연 기준 일수, '오늘 업무' 첫 탭, 환자 목록 기본 필터) / 데이터(알림 결과 CSV) / 정보(점수 기준, 안내).
-  화면·업무 설정은 `src/lib/preferences.ts`(브라우저 저장, useSyncExternalStore로 즉시 반영),
-  알림 기준은 `src/lib/alert-settings.ts`. 다크 모드는 html의 `.dark` 클래스와 `styles.css`의 `.dark` 토큰,
-  첫 화면 전에 `__root.tsx`의 `PREFS_BOOT_SCRIPT`로 적용(깜빡임 방지).
-- 담당 관리(`admin.tsx`, 관리자만): 환자 × 의료진 체크박스로 담당 배정, 의료진 역할·관리자 권한 변경.
-  자기 관리자 권한은 스스로 끌 수 없다(관리자가 없어지는 것 방지).
-- 첫 로그인 시 이름·역할 입력 창(`StaffProfile.tsx`의 `StaffProfileGate`, 닫을 수 없음).
-  비밀번호 변경은 설정 화면(`PasswordChangeForm`: 현재 비밀번호 확인 후 `supabase.auth.updateUser`, 6자 이상).
-- 로그인(`auth.tsx`): '@'가 없는 아이디는 `@rumble-strip.test`를 붙여 이메일로 바꾼다(`src/lib/login-id.ts`).
-  관리자 계정은 아이디 `admin`(= admin@rumble-strip.test). .test 주소라 비밀번호 찾기 메일을 받을 수 없다.
-  회원가입은 실제 이메일로만 받는다.
+    오른쪽 상세는 헤더 아래에 고정(sticky)되고 안에서만 스크롤된다. 모바일은 상세가 전체 화면.
+- 환자 상세(`PatientDetail.tsx`): 맨 위(이름·단계·점수·이유·다음 연락일, 연락 담당 + '내가 맡기'·'넘기기'(`PatientContact.tsx`),
+  '연락 기록하기')는 늘 보이고, 아래는 탭 5개로 한 화면씩 옆으로 넘긴다(탭 줄 sticky, 보던 탭은 다른 환자에서도 유지):
+  연락 도우미(`ResponseGuide.tsx`) / 경과 요약(AI 요약·핵심 지표·위험 이유·점수 구성) / 그래프 / 캘린더 /
+  연락 이력(`ContactHistory.tsx`: 새로 나빠짐·연락 기록·넘긴 기록 시간 순, 새로 나빠짐 줄에서 결과 기록). 넘김 효과는 `styles.css`의 `.tab-slide`.
+- 담당은 환자 단위 '연락 담당' 하나. '내가 맡기'(관리자·그 환자 담당자 누구나)와 '넘기기'(받는 사람은 그 환자 담당자)는
+  DB 함수 `take_patient`, `handoff_patient`(SQL 007)가 권한을 확인하고 처리한다. 처리 안 된 알림 담당자도 함께 바뀐다.
+- 알림(`alerts`) = '새로 나빠짐' 사건. 종 아이콘(`AlertsBell.tsx`)은 '새로 나빠진 환자' 목록이고 누르면 환자 상세.
+- 다음 연락 일정(`follow_ups`, `src/lib/follow-up.ts`): '연락 기록하기' 창에서 예정일(주의 3일·이탈 위험 2일·치료이탈 1일 뒤
+  기본)을 정한다. 그날 목록에 '오늘 다시 연락'으로 나오고, 다음 연락 기록 때 함께 완료한다. 보호자 안내문에도 들어간다.
 - 시뮬레이터(`simulator.tsx`): 저장 없는 미리보기 전용. 가정한 플레이·미접속을 순서대로 쌓아 `computeRisk`로 계산만 한다.
   DB·대시보드·알림을 바꾸지 않는다. 알림 조건에 해당하면 안내 문구만 띄운다.
 - `src/components/PatientDetail.tsx`: 환자 상세. 점수 구성 카드, 핵심 지표, AI 경과 요약(+근거 수치 칩), 대응 가이드, 위험 이유,
@@ -123,9 +106,9 @@ npm run format  # prettier
     고유 인덱스 `risk_scores_daily_once`(patient_id, check_date where source='daily') (2026-11-11)
   - `staff`(의료진: id=auth.users.id, name, role '의사'|'간호사'|'상담원', is_admin), `patient_staff`(환자-담당자, 여러 명) (2026-11-12)
   - `alerts`: `assignee_id`(→ staff), `assigned_at`, `resolved_at` / `patient_staff`: `is_contact`(환자당 1명, 관리자만 변경) (2026-11-12)
-  - `alert_handoffs`(알림 넘긴 기록), `follow_ups`(다음 연락 일정) (2026-11-12, 006)
+  - `alert_handoffs`(넘긴 기록, 007부터 alert_id 비어 있을 수 있음), `follow_ups`(다음 연락 일정) (2026-11-12, 006·007)
 - 손으로 실행한 SQL은 `supabase/manual-sql/`에 번호 순서로 둔다(001 알림 결과, 002 매일 점검, 003 담당 환자 RLS와
-  되돌리기·시험 SQL, 004 관리자 아이디, 005 알림 담당자, 006 넘기기·다음 연락). DB를 새로 만들 때 마이그레이션 다음에 이 순서대로 실행한다.
+  되돌리기·시험 SQL, 004 관리자 아이디, 005 알림 담당자, 006 넘기기·다음 연락, 007 환자 단위 맡기·넘기기). DB를 새로 만들 때 마이그레이션 다음에 이 순서대로 실행한다.
 - RLS(003 이후): 관리자(`is_admin()`)는 전체, 그 외에는 `patient_staff`로 연결된 환자만(`can_see_patient()`).
   - patients·play_logs: 읽기는 관리자·담당자, 쓰기는 관리자만
   - risk_scores·alerts: 담당자도 추가(대시보드 매일 점검)·알림 상태와 결과 기록 가능, 삭제는 관리자

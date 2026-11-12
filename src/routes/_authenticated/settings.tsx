@@ -11,10 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { PasswordChangeForm, StaffProfileForm } from "@/components/StaffProfile";
+import { AlertOutcomeSummary } from "@/components/AlertOutcome";
 import { MAX_CAPACITY, useAlertSettings } from "@/lib/alert-settings";
 import { toCsv } from "@/lib/csv";
 import { displayLoginId } from "@/lib/login-id";
-import { setPreferences, TEXT_SCALE_MAX, TEXT_SCALE_MIN, TEXT_SCALE_STEP, usePreferences, type DefaultFilter, type FirstTab, type ThemePref } from "@/lib/preferences";
+import { setPreferences, TEXT_SCALE_MAX, TEXT_SCALE_MIN, TEXT_SCALE_STEP, usePreferences, type ThemePref } from "@/lib/preferences";
 import { fetchAlertExport, myStaffQuery, patientsOverviewQuery } from "@/lib/queries";
 import { RISK_CONFIG, toDateKey } from "@/lib/risk";
 import { cn } from "@/lib/utils";
@@ -22,8 +23,8 @@ import { cn } from "@/lib/utils";
 const SECTIONS = [
   { id: "account", label: "계정", icon: UserRound, desc: "이름·역할, 비밀번호" },
   { id: "display", label: "화면", icon: Monitor, desc: "다크 모드, 글자 크기, 움직임" },
-  { id: "work", label: "업무", icon: Workflow, desc: "알림 기준, 지연 기준, 업무량, 대시보드 기본값" },
-  { id: "data", label: "데이터", icon: Database, desc: "알림 결과 내보내기" },
+  { id: "work", label: "업무", icon: Workflow, desc: "연락할 환자 기준" },
+  { id: "data", label: "데이터", icon: Database, desc: "알림 결과 통계, 내보내기" },
   { id: "info", label: "정보", icon: Info, desc: "점수 기준, 안내" },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
@@ -224,74 +225,8 @@ function WorkSection() {
   const p = usePreferences();
   return (
     <>
-      <Block title="알림 기준" description="대시보드 '오늘 업무 → 연락할 환자'에 누가 들어갈지 정합니다.">
+      <Block title="연락할 환자 기준" description="대시보드 '오늘 연락할 환자'에 들어갈 점수 기준입니다. 새로 나빠졌거나 다시 연락할 날이 된 환자는 기준과 관계없이 들어갑니다.">
         <AlertSettingsForm />
-      </Block>
-      <Block title="지연 기준" description="알림 후 며칠 동안 조치완료가 안 되면 '지연'으로 표시할지 정합니다. 초기값 2일은 가정치입니다.">
-        <div className="flex flex-wrap items-center gap-3">
-          <Input
-            id="pref-overdue"
-            type="number"
-            min={1}
-            max={7}
-            value={p.overdueDays}
-            onChange={(e) => {
-              const v = Math.round(Number(e.target.value));
-              if (v >= 1 && v <= 7) setPreferences({ overdueDays: v });
-            }}
-            className="h-11 w-24 text-base"
-            aria-label="지연 기준 일수"
-          />
-          <span className="text-sm text-muted-foreground">일 이상 지나면 지연 (1~7일)</span>
-        </div>
-      </Block>
-      <Block title="내 업무량" description="내 담당 알림이 이 수보다 많으면 '처리할 알림' 위에 경고를 띄웁니다. 알림을 막지는 않습니다.">
-        <div className="flex flex-wrap items-center gap-3">
-          <Input
-            id="pref-capacity"
-            type="number"
-            min={1}
-            max={50}
-            value={p.myAlertCapacity}
-            onChange={(e) => {
-              const v = Math.round(Number(e.target.value));
-              if (v >= 1 && v <= 50) setPreferences({ myAlertCapacity: v });
-            }}
-            className="h-11 w-24 text-base"
-            aria-label="하루 처리 가능한 알림 수"
-          />
-          <span className="text-sm text-muted-foreground">건 (하루에 처리할 수 있는 알림 수)</span>
-        </div>
-      </Block>
-      <Block title="대시보드 기본값">
-        <div className="space-y-5">
-          <div className="space-y-2">
-            <p className="text-sm font-medium">'오늘 업무'에서 처음 보일 탭</p>
-            <Choice<FirstTab>
-              label="처음 보일 탭"
-              value={p.firstTab}
-              onChange={(firstTab) => setPreferences({ firstTab })}
-              options={[
-                { value: "last", label: "마지막에 본 탭" },
-                { value: "alerts", label: "처리할 알림" },
-                { value: "contact", label: "연락할 환자" },
-                { value: "outcomes", label: "알림 결과" },
-              ]}
-            />
-          </div>
-          <div className="space-y-2">
-            <p className="text-sm font-medium">환자 목록 기본 필터</p>
-            <Choice<DefaultFilter>
-              label="환자 목록 기본 필터"
-              value={p.defaultFilter}
-              onChange={(defaultFilter) => setPreferences({ defaultFilter })}
-              options={[
-                { value: "전체", label: "전체" },
-                { value: "알림 대상", label: "알림 대상만" },
-              ]}
-            />
-          </div>
-        </div>
       </Block>
       <p className="text-xs text-muted-foreground">업무 설정은 이 브라우저에만 저장됩니다.</p>
     </>
@@ -377,6 +312,10 @@ function DataSection() {
   }
 
   return (
+    <>
+    <Block title="알림 결과 통계" description="'새로 나빠짐' 이후 기록한 결과(회복·이탈·연락 불가)를 모은 것입니다. 점수 기준이 맞는지 확인하는 데 씁니다.">
+      <AlertOutcomeSummary embedded />
+    </Block>
     <Block
       title="알림 결과 내보내기 (CSV)"
       description="볼 수 있는 환자의 알림과 기록한 결과(회복·이탈·연락 불가)를 엑셀에서 열 수 있는 파일로 받습니다. 점수 기준이 맞는지 검증할 때 씁니다."
@@ -386,6 +325,7 @@ function DataSection() {
         지금 데이터는 모두 가상 환자입니다. 실제 환자 데이터를 쓰게 되면 파일에 환자 이름이 들어가므로 보관과 공유에 주의해야 합니다.
       </p>
     </Block>
+    </>
   );
 }
 
