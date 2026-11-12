@@ -430,6 +430,48 @@ export type Database = {
         }
         Relationships: []
       }
+      // SQL 010. 화면(로그인 사용자)은 code_hash를 뺀 열만 읽을 수 있고(관리자만), 쓰기는 서버 함수(service role)만 한다.
+      staff_invites: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          login_id: string
+          staff_id: string
+          used_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          login_id: string
+          staff_id: string
+          used_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          login_id?: string
+          staff_id?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_invites_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -5,6 +5,7 @@ import { koreaNow } from "./daily-check";
 import { runDailyCheckWith } from "./daily-check-run";
 import { suggestOutcome, type AlertOutcome } from "./alert-outcome";
 import type { Workload } from "./workload";
+import { inviteState, type InviteState } from "./setup-code";
 import { fetchCounselorAlerts, fetchCounselorBoard, fetchCounselorPatient } from "./counselor-view.server";
 
 export const patientsOverviewQuery = () =>
@@ -374,6 +375,21 @@ export const staffWorkloadQuery = () =>
     },
     retry: false,
     refetchInterval: 60_000,
+  });
+
+/**
+ * 처음 설정 코드 상태 (관리자만, SQL 010). 코드 해시는 읽지 않는다(열 권한으로 막힘).
+ * 줄이 없거나 '사용함'이면 설정을 마친 계정. 010 실행 전이면 빈 목록으로 본다.
+ */
+export const setupInvitesQuery = () =>
+  queryOptions({
+    queryKey: ["staff", "invites"],
+    queryFn: async (): Promise<Record<string, InviteState>> => {
+      const { data, error } = await supabase.from("staff_invites").select("staff_id, expires_at, used_at, attempts");
+      if (error) return {};
+      const now = new Date();
+      return Object.fromEntries((data ?? []).map((r) => [r.staff_id, inviteState(r, now)]));
+    },
   });
 
 /** '오늘 연락할 환자' 목록 재료: 알림, 열린 다음 연락, 마지막 조치, 연락 담당 */

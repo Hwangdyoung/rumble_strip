@@ -240,6 +240,38 @@ begin
       res := res || format('25. 담당 아닌 환자 연락 기록: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
     end;
 
+    -- 26~29) 처음 설정 코드 (SQL 010). 시험용 줄을 하나 넣고 읽기·쓰기 권한을 본다.
+    begin
+      execute 'reset role';
+      delete from public.staff_invites where staff_id = admin_id;
+      insert into public.staff_invites (staff_id, login_id, code_hash, expires_at)
+      values (admin_id, 'rls-test-' || substr(admin_id::text, 1, 8), 'test-hash', now() + interval '1 day');
+      execute 'set local role authenticated';
+      -- 지금 admin_id는 상담원(관리자 아님) 상태
+      select count(*) into n from public.staff_invites;
+      res := res || format('26. 관리자 아닌 계정: 설정 코드 줄 %s건 보임 (기대: 0)', n) || E'\n';
+      execute 'reset role';
+      update public.staff set is_admin = true where id = admin_id;
+      execute 'set local role authenticated';
+      select count(*) into n from public.staff_invites where staff_id = admin_id;
+      res := res || format('27. 관리자: 설정 대기 줄 %s건 보임 (기대: 1)', n) || E'\n';
+      begin
+        select count(code_hash) into n from public.staff_invites;
+        res := res || '28. 관리자가 코드 해시 읽기: 막히지 않음 (문제)' || E'\n';
+      exception when others then
+        res := res || format('28. 관리자가 코드 해시 읽기: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
+      end;
+      begin
+        update public.staff_invites set used_at = now() where staff_id = admin_id;
+        get diagnostics n = row_count;
+        res := res || format('29. 관리자가 화면에서 설정 코드 고치기: %s건 바뀜 (기대: 막힘)', n) || E'\n';
+      exception when others then
+        res := res || format('29. 관리자가 화면에서 설정 코드 고치기: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
+      end;
+    exception when others then
+      res := res || format('26~29. 설정 코드 시험 실패: %s (코드 %s, 010을 실행했는지 확인)', sqlerrm, sqlstate) || E'\n';
+    end;
+
     -- 여기까지의 변경을 모두 되돌리기 위해 일부러 예외를 낸다 (결과 문장을 함께 실어 보냄)
     raise exception 'RESULT:%', res;
   exception when others then

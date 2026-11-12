@@ -9,6 +9,7 @@ import {
   setPatientContact,
   setPatientStaff,
   staffListQuery,
+  setupInvitesQuery,
   staffWorkloadQuery,
   updateStaff,
   type StaffRole,
@@ -54,6 +55,7 @@ function AdminContent({ myId }: { myId: string }) {
   const staff = useQuery(staffListQuery());
   const asg = useQuery(assignmentsQuery());
   const workload = useQuery(staffWorkloadQuery());
+  const invites = useQuery(setupInvitesQuery());
   const [tab, setTab] = useState<Tab>("patients");
 
   const refresh = () => {
@@ -152,6 +154,7 @@ function AdminContent({ myId }: { myId: string }) {
             rows={sRows}
             patients={asg.data.patients}
             workload={workload.data}
+            invites={invites.data}
             myId={myId}
             busy={busy}
             onRole={(staffId, role) => upd.mutate({ staffId, role })}

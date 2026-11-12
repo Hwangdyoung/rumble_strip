@@ -1,41 +1,40 @@
 import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { UserPlus } from "lucide-react";
+import { KeyRound, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createStaffAccount } from "@/lib/staff-account.server";
-import { checkNewAccount, MIN_PASSWORD, NEW_ACCOUNT_ROLES, suggestPassword } from "@/lib/staff-account";
+import { createStaffAccount, reissueSetupCode, type SetupCodeResult } from "@/lib/staff-account.server";
+import { checkNewAccount, NEW_ACCOUNT_ROLES } from "@/lib/staff-account";
+import { formatSetupCode, SETUP_CODE_HOURS, setupMessage } from "@/lib/setup-code";
 
 /**
  * 관리자: 의료진 계정 만들기 (회원가입을 막은 뒤 계정을 만드는 곳).
- * 만들고 나면 아이디와 처음 비밀번호를 한 번 보여 준다. 관리자는 이것을 본인에게 직접 전하고,
- * 본인은 첫 로그인 뒤 설정 화면에서 비밀번호를 바꾼다.
+ * 비밀번호는 관리자가 정하지 않는다. 만들고 나면 아이디와 '처음 설정 코드'를 한 번 보여 주고,
+ * 본인이 로그인 화면 '코드로 비밀번호 만들기'(/activate)에서 직접 비밀번호를 만든다.
  */
 export function CreateStaffAccount({ disabled, onCreated }: { disabled?: boolean; onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [loginId, setLoginId] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState<string>("간호사");
-  const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
-  const [done, setDone] = useState<{ loginId: string; name: string; password: string } | null>(null);
+  const [done, setDone] = useState<SetupCodeResult | null>(null);
 
   function reset() {
     setLoginId("");
     setName("");
     setRole("간호사");
-    setPassword(suggestPassword());
     setErrors([]);
     setDone(null);
   }
 
   const m = useMutation({
-    mutationFn: (v: { loginId: string; name: string; role: string; password: string }) => createStaffAccount({ data: v }),
-    onSuccess: (r, v) => {
-      setDone({ loginId: r.loginId, name: r.name, password: v.password });
+    mutationFn: (v: { loginId: string; name: string; role: string }) => createStaffAccount({ data: v }),
+    onSuccess: (r) => {
+      setDone(r);
       onCreated();
     },
     onError: (e) => {
@@ -48,19 +47,10 @@ export function CreateStaffAccount({ disabled, onCreated }: { disabled?: boolean
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const r = checkNewAccount({ loginId, name, role, password });
+    const r = checkNewAccount({ loginId, name, role });
     if (!r.ok) return setErrors(r.errors);
     setErrors([]);
-    m.mutate({ loginId: r.value.loginId, name: r.value.name, role: r.value.role, password: r.value.password });
-  }
-
-  async function copy(text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success("복사했습니다.");
-    } catch {
-      toast.error("복사하지 못했습니다. 직접 옮겨 적어 주세요.");
-    }
+    m.mutate({ loginId: r.value.loginId, name: r.value.name, role: r.value.role });
   }
 
   return (
@@ -71,29 +61,9 @@ export function CreateStaffAccount({ disabled, onCreated }: { disabled?: boolean
       <Dialog open={open} onOpenChange={(v) => { if (!m.isPending) setOpen(v); }}>
         <DialogContent className="w-[calc(100%-2rem)] max-w-md">
           {done ? (
-            <div className="space-y-4">
-              <DialogHeader>
-                <DialogTitle className="text-xl">계정을 만들었습니다</DialogTitle>
-                <DialogDescription>
-                  아래 아이디와 처음 비밀번호를 {done.name} 님에게 직접 전해 주세요. 이 창을 닫으면 비밀번호는 다시 볼 수 없습니다.
-                </DialogDescription>
-              </DialogHeader>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-lg border bg-muted/40 p-4 text-base">
-                <dt className="text-muted-foreground">아이디</dt>
-                <dd className="font-mono font-semibold">{done.loginId}</dd>
-                <dt className="text-muted-foreground">처음 비밀번호</dt>
-                <dd className="font-mono font-semibold break-all">{done.password}</dd>
-              </dl>
-              <p className="text-sm text-muted-foreground">
-                첫 로그인 뒤 오른쪽 위 이름표 → 설정에서 비밀번호를 바꾸도록 안내해 주세요. 담당 환자는 목록에서 이 사람을 펼쳐 추가합니다.
-              </p>
-              <DialogFooter className="gap-2">
-                <Button type="button" variant="outline" onClick={() => copy(`이탈방지턱 아이디: ${done.loginId}\n처음 비밀번호: ${done.password}`)}>
-                  아이디·비밀번호 복사
-                </Button>
-                <Button type="button" onClick={() => setOpen(false)}>닫기</Button>
-              </DialogFooter>
-            </div>
+            <SetupCodeView result={done} title="계정을 만들었습니다" onClose={() => setOpen(false)}>
+              담당 환자는 목록에서 이 사람을 펼쳐 추가합니다.
+            </SetupCodeView>
           ) : (
             <form onSubmit={onSubmit} className="space-y-4">
               <DialogHeader>
@@ -138,25 +108,9 @@ export function CreateStaffAccount({ disabled, onCreated }: { disabled?: boolean
                 </div>
                 <p className="text-xs text-muted-foreground">상담원은 연락 업무에 필요한 정보(단계·접속 여부·연락 도우미)만 봅니다.</p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-password" className="text-base">처음 비밀번호</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="new-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="new-password"
-                    spellCheck={false}
-                    required
-                    minLength={MIN_PASSWORD}
-                    className="h-11 font-mono text-base"
-                  />
-                  <Button type="button" variant="outline" className="h-11 shrink-0" onClick={() => setPassword(suggestPassword())}>
-                    새로 만들기
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">{MIN_PASSWORD}자 이상. 본인이 첫 로그인 뒤 바꿉니다.</p>
-              </div>
+              <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                비밀번호는 정하지 않습니다. 만들면 '처음 설정 코드'가 나오고, 본인이 그 코드로 직접 비밀번호를 만듭니다({SETUP_CODE_HOURS}시간 안에 한 번).
+              </p>
               {errors.length > 0 && (
                 <ul className="space-y-1 rounded-lg bg-level-risk-soft px-3 py-2 text-sm text-level-risk" role="alert">
                   {errors.map((er) => <li key={er}>{er}</li>)}
@@ -167,6 +121,127 @@ export function CreateStaffAccount({ disabled, onCreated }: { disabled?: boolean
                 <Button type="submit" disabled={m.isPending}>{m.isPending ? "만드는 중…" : "계정 만들기"}</Button>
               </DialogFooter>
             </form>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+/**
+ * 처음 설정 코드를 한 번 보여 주는 화면 (계정 만들기·코드 다시 만들기에서 함께 쓴다).
+ * 코드 원문은 DB에 없으므로 창을 닫으면 다시 볼 수 없다.
+ */
+export function SetupCodeView({
+  result,
+  title,
+  onClose,
+  children,
+}: {
+  result: SetupCodeResult;
+  title: string;
+  onClose: () => void;
+  children?: React.ReactNode;
+}) {
+  const expires = new Date(result.expiresAt);
+  const message = setupMessage({
+    name: result.name,
+    loginId: result.loginId,
+    code: result.code,
+    expiresAt: expires,
+    siteUrl: typeof window === "undefined" ? "" : window.location.origin,
+  });
+
+  async function copy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("복사했습니다.");
+    } catch {
+      toast.error("복사하지 못했습니다. 직접 옮겨 적어 주세요.");
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <DialogHeader>
+        <DialogTitle className="text-xl">{title}</DialogTitle>
+        <DialogDescription>
+          아래 아이디와 처음 설정 코드를 {result.name} 님에게 직접 전해 주세요. 본인이 이 코드로 비밀번호를 만듭니다.
+          이 창을 닫으면 코드는 다시 볼 수 없습니다(필요하면 다시 만들 수 있음).
+        </DialogDescription>
+      </DialogHeader>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-lg border bg-muted/40 p-4 text-base">
+        <dt className="text-muted-foreground">아이디</dt>
+        <dd className="font-mono font-semibold">{result.loginId}</dd>
+        <dt className="text-muted-foreground">처음 설정 코드</dt>
+        <dd className="font-mono text-lg font-semibold tracking-wider">{formatSetupCode(result.code)}</dd>
+        <dt className="text-muted-foreground">기한</dt>
+        <dd>{expires.toLocaleString("ko-KR", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}까지, 한 번만</dd>
+      </dl>
+      <p className="text-sm text-muted-foreground">
+        본인은 로그인 화면의 '처음 오셨나요? 코드로 비밀번호 만들기'를 누르면 됩니다. {children}
+      </p>
+      <DialogFooter className="gap-2">
+        <Button type="button" variant="outline" onClick={() => copy(message)}>
+          안내 문장 복사
+        </Button>
+        <Button type="button" onClick={onClose}>닫기</Button>
+      </DialogFooter>
+    </div>
+  );
+}
+
+/**
+ * 관리자: 처음 설정 코드 다시 만들기 (코드 분실·기한 지남·잠김, 또는 비밀번호를 잊었을 때).
+ * 만들면 그 사람의 지금 비밀번호로는 더 로그인할 수 없고, 새 코드로 비밀번호를 다시 만들어야 한다.
+ */
+export function ReissueSetupCode({ staffId, name, disabled, onDone }: { staffId: string; name: string; disabled?: boolean; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [done, setDone] = useState<SetupCodeResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const m = useMutation({
+    mutationFn: () => reissueSetupCode({ data: { staffId } }),
+    onSuccess: (r) => {
+      setDone(r);
+      onDone();
+    },
+    onError: (e) => {
+      const msg = e instanceof Error ? e.message : "";
+      setError(msg.startsWith("Missing Supabase") ? "서버 설정(Supabase 키)이 없어 코드를 만들 수 없습니다. 배포 사이트에서 시도해 주세요." : msg || "코드를 만들지 못했습니다. 다시 시도해 주세요.");
+    },
+  });
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={disabled}
+        onClick={() => { setDone(null); setError(null); setOpen(true); }}
+        aria-label={`${name} 처음 설정 코드 다시 만들기`}
+      >
+        <KeyRound className="size-4" aria-hidden /> 코드 다시 만들기
+      </Button>
+      <Dialog open={open} onOpenChange={(v) => { if (!m.isPending) setOpen(v); }}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md">
+          {done ? (
+            <SetupCodeView result={done} title="새 코드를 만들었습니다" onClose={() => setOpen(false)} />
+          ) : (
+            <div className="space-y-4">
+              <DialogHeader>
+                <DialogTitle className="text-xl">{name} 님의 코드를 다시 만들까요?</DialogTitle>
+                <DialogDescription>
+                  코드를 잃어버렸거나 기한이 지났을 때, 또는 비밀번호를 잊었을 때 씁니다.
+                  만들면 <b>지금 비밀번호로는 더 로그인할 수 없고</b>, 예전 코드도 쓸 수 없습니다. 본인이 새 코드로 비밀번호를 다시 만들어야 합니다.
+                </DialogDescription>
+              </DialogHeader>
+              {error && <p className="rounded-lg bg-level-risk-soft px-3 py-2 text-sm text-level-risk" role="alert">{error}</p>}
+              <DialogFooter className="gap-2">
+                <Button type="button" variant="outline" disabled={m.isPending} onClick={() => setOpen(false)}>취소</Button>
+                <Button type="button" disabled={m.isPending} onClick={() => m.mutate()}>{m.isPending ? "만드는 중…" : "코드 다시 만들기"}</Button>
+              </DialogFooter>
+            </div>
           )}
         </DialogContent>
       </Dialog>

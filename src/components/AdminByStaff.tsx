@@ -3,7 +3,8 @@ import { ChevronDown, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { NamePicker, type PickItem } from "@/components/NamePicker";
-import { CreateStaffAccount } from "@/components/CreateStaffAccount";
+import { CreateStaffAccount, ReissueSetupCode } from "@/components/CreateStaffAccount";
+import type { InviteState } from "@/lib/setup-code";
 import { filterStaffRows, type PatientItem, type StaffRow } from "@/lib/assignments";
 import type { Workload } from "@/lib/workload";
 import { STAFF_ROLES, type StaffRole } from "@/lib/queries";
@@ -17,6 +18,7 @@ export function AdminByStaff({
   rows,
   patients,
   workload,
+  invites,
   myId,
   busy,
   onRole,
@@ -29,6 +31,8 @@ export function AdminByStaff({
   patients: PatientItem[];
   /** 업무량 (SQL 008 함수, 없으면 undefined) */
   workload?: Workload[] | undefined;
+  /** 처음 설정 코드 상태 (SQL 010, 줄 없는 사람은 설정 마침) */
+  invites?: Record<string, InviteState> | undefined;
   myId: string;
   busy: boolean;
   onRole: (staffId: string, role: StaffRole) => void;
@@ -59,7 +63,8 @@ export function AdminByStaff({
         <CreateStaffAccount disabled={busy} onCreated={onCreated} />
       </div>
       <p className="text-sm text-muted-foreground">
-        회원가입은 받지 않습니다. 계정은 '의료진 계정 만들기'로 만들고, 역할과 관리자 권한은 여기서 관리자만 바꿉니다.
+        회원가입은 받지 않습니다. 계정은 '의료진 계정 만들기'로 만들고, 본인이 '처음 설정 코드'로 비밀번호를 만듭니다.
+        코드를 잃어버렸거나 비밀번호를 잊으면 '코드 다시 만들기'를 누르세요. 역할과 관리자 권한은 여기서 관리자만 바꿉니다.
         상담원은 연락 업무에 필요한 정보(단계·접속 여부·연락 도우미)만 봅니다.
       </p>
 
@@ -67,6 +72,8 @@ export function AdminByStaff({
         {shown.length === 0 && <li className="p-6 text-center text-muted-foreground">조건에 맞는 의료진이 없습니다.</li>}
         {shown.map((s) => {
           const w = workload?.find((x) => x.staffId === s.id);
+          const inv = invites?.[s.id];
+          const pending = inv && inv !== "사용함" ? (inv === "대기" ? "설정 대기" : inv === "잠김" ? "코드 잠김" : "코드 기한 지남") : null;
           const expanded = open === s.id;
           return (
             <li key={s.id} className={cn(s.isNew && "bg-level-caution-soft/40")}>
@@ -82,12 +89,24 @@ export function AdminByStaff({
                     <span className="font-semibold">{s.name}</span>
                     {s.id === myId && <span className="ml-1.5 text-xs text-muted-foreground">(나)</span>}
                     {s.isNew && <span className="ml-1.5 rounded-full bg-level-caution-soft px-2 py-0.5 text-xs font-semibold text-level-caution-ink">새 계정</span>}
+                    {pending && (
+                      <span
+                        className={cn(
+                          "ml-1.5 rounded-full px-2 py-0.5 text-xs font-semibold",
+                          inv === "대기" ? "bg-muted text-muted-foreground" : "bg-level-risk-soft text-level-risk",
+                        )}
+                        title="본인이 아직 처음 설정 코드로 비밀번호를 만들지 않았습니다"
+                      >
+                        {pending}
+                      </span>
+                    )}
                     <span className="block text-sm text-muted-foreground">
                       담당 환자 {s.patientIds.length}명{w ? ` · 연락 담당 ${w.patients}명 · 오늘 할 일 ${w.todo}` : ""}
                     </span>
                   </span>
                 </button>
                 <div className="flex flex-wrap items-center gap-4">
+                  {s.id !== myId && <ReissueSetupCode staffId={s.id} name={s.name} disabled={busy} onDone={onCreated} />}
                   <label className="flex items-center gap-2 text-sm">
                     <span className="text-muted-foreground">역할</span>
                     <select

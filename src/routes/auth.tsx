@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -82,10 +82,16 @@ function AuthPage() {
               {loading ? "처리 중…" : "로그인"}
             </Button>
           </form>
-          <p className="mt-5 text-center text-sm leading-relaxed text-muted-foreground">
+          <div className="mt-5 rounded-lg bg-muted/50 px-4 py-3 text-center">
+            <p className="text-sm text-muted-foreground">처음 오셨나요? 비밀번호를 잊으셨나요?</p>
+            <Link to="/activate" className="mt-1 inline-block font-semibold text-primary underline-offset-4 hover:underline">
+              처음 설정 코드로 비밀번호 만들기
+            </Link>
+          </div>
+          <p className="mt-4 text-center text-sm leading-relaxed text-muted-foreground">
             이탈방지턱은 기관에서 발급한 계정으로만 이용할 수 있습니다.
             <br />
-            계정 발급이나 비밀번호 초기화는 담당 관리자에게 문의해 주세요.
+            계정 발급이나 코드 재발급은 담당 관리자에게 문의해 주세요.
           </p>
         </div>
         <p className="mt-4 text-center text-sm text-muted-foreground">
