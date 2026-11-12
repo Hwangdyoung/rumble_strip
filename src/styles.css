@@ -177,7 +177,7 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-size: 17px;
+    font-size: calc(17px * var(--text-scale, 1));
     letter-spacing: -0.01em;
     -webkit-font-smoothing: antialiased;
   }
@@ -269,13 +269,7 @@
   }
 }
 
-/* 글자 크게 보기 (설정 → 화면) */
-html[data-text="large"] {
-  font-size: 112.5%;
-}
-html[data-text="large"] body {
-  font-size: 19px;
-}
+/* 글자 크기 (설정 → 화면): html의 font-size(%)와 --text-scale을 preferences.ts가 정한다 */
 
 /* 움직임 줄이기 (설정 → 화면): 슬라이드·애니메이션을 끈다 */
 html[data-motion="reduce"] *,

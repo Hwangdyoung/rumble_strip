@@ -14,7 +14,7 @@ import { PasswordChangeForm, StaffProfileForm } from "@/components/StaffProfile"
 import { MAX_CAPACITY, useAlertSettings } from "@/lib/alert-settings";
 import { toCsv } from "@/lib/csv";
 import { displayLoginId } from "@/lib/login-id";
-import { setPreferences, usePreferences, type DefaultFilter, type FirstTab, type ThemePref } from "@/lib/preferences";
+import { setPreferences, TEXT_SCALE_MAX, TEXT_SCALE_MIN, TEXT_SCALE_STEP, usePreferences, type DefaultFilter, type FirstTab, type ThemePref } from "@/lib/preferences";
 import { fetchAlertExport, myStaffQuery, patientsOverviewQuery } from "@/lib/queries";
 import { RISK_CONFIG, toDateKey } from "@/lib/risk";
 import { cn } from "@/lib/utils";
@@ -174,14 +174,47 @@ function DisplaySection() {
           ]}
         />
       </Block>
+      <Block title="글자 크기" description="화면 전체 글자와 간격을 함께 조절합니다. 기본은 100%입니다.">
+        <TextScaleControl value={p.textScale} />
+      </Block>
       <Block title="보기 편하게">
         <div className="space-y-5">
-          <ToggleRow id="pref-large" label="글자 크게 보기" description="화면 전체 글자를 약 12% 크게 합니다." checked={p.largeText} onChange={(largeText) => setPreferences({ largeText })} />
           <ToggleRow id="pref-motion" label="움직임 줄이기" description="패널 슬라이드, 화면 전환 애니메이션을 끕니다." checked={p.reduceMotion} onChange={(reduceMotion) => setPreferences({ reduceMotion })} />
         </div>
       </Block>
       <p className="text-xs text-muted-foreground">화면 설정은 이 브라우저에만 저장됩니다.</p>
     </>
+  );
+}
+
+function TextScaleControl({ value }: { value: number }) {
+  const set = (textScale: number) => setPreferences({ textScale });
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <Button type="button" variant="outline" size="icon" className="size-10 shrink-0" aria-label="글자 작게" disabled={value <= TEXT_SCALE_MIN} onClick={() => set(value - TEXT_SCALE_STEP)}>
+          <span className="text-sm font-bold">가-</span>
+        </Button>
+        <Slider
+          aria-label="글자 크기"
+          min={TEXT_SCALE_MIN}
+          max={TEXT_SCALE_MAX}
+          step={TEXT_SCALE_STEP}
+          value={[value]}
+          onValueChange={([v]) => set(v ?? 100)}
+          className="flex-1"
+        />
+        <Button type="button" variant="outline" size="icon" className="size-10 shrink-0" aria-label="글자 크게" disabled={value >= TEXT_SCALE_MAX} onClick={() => set(value + TEXT_SCALE_STEP)}>
+          <span className="text-base font-bold">가+</span>
+        </Button>
+        <span className="w-14 shrink-0 text-right text-lg font-bold tabular-nums">{value}%</span>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="rounded-lg bg-muted px-3 py-2">미리보기: 이도윤 · 이탈 위험 79점 · 4일 연속 미접속</p>
+        <Button type="button" variant="ghost" size="sm" disabled={value === 100} onClick={() => set(100)}>기본값(100%)으로</Button>
+      </div>
+      <p className="text-xs text-muted-foreground">{TEXT_SCALE_MIN}~{TEXT_SCALE_MAX}%, {TEXT_SCALE_STEP}% 단위. 바꾸면 바로 적용됩니다.</p>
+    </div>
   );
 }
 

@@ -1,11 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Plus } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { patientDetailQuery } from "@/lib/queries";
+import { myStaffQuery, patientDetailQuery } from "@/lib/queries";
 import { asOfFor, computeRisk, riskHistory, weeklySummary, summaryEvidence, CAUSE_ACTION, RISK_CONFIG, toDateKey } from "@/lib/risk";
 import type { RiskResult } from "@/lib/risk";
 import type { CalendarLog } from "@/lib/calendar";
@@ -13,6 +13,8 @@ import { setAlertStatus, type AlertStatus } from "@/lib/queries";
 import { alertStatusStyle } from "@/components/AlertsBell";
 import { AlertOutcomePicker } from "@/components/AlertOutcome";
 import { AlertAssignee } from "@/components/AlertAssignee";
+import { ResponseGuide } from "@/components/ResponseGuide";
+import { ACTION_MEMO_TEMPLATE, buildGuide } from "@/lib/response-guide";
 import { suggestOutcome } from "@/lib/alert-outcome";
 import { Sparkles } from "lucide-react";
 import { CauseBadge, LevelBadge } from "@/components/LevelBadge";
@@ -98,6 +100,22 @@ function PatientDetailContent({
   const todayKey = toDateKey(new Date());
   const aiQueryKey = aiSummaryQueryKey(id, risk.score, risk.level, todayKey);
   const aiInput = riskToAiInput(risk, weeks);
+  // 대응 가이드: 단계·원인·지표로 할 일과 연락 문장을 만든다 (점수 계산은 risk.ts 결과를 그대로 씀)
+  const { data: me } = useQuery(myStaffQuery());
+  const guide = buildGuide({
+    risk,
+    patientName: patient.name,
+    weeklyTargetDays: patient.weekly_target_days,
+    sessionTargetMinutes: patient.session_target_minutes,
+    unreachable: alerts.some((a) => a.status !== "조치완료" && a.outcome === "연락 불가"),
+    staffName: me?.staff?.name ?? null,
+  });
+  const [actionOpen, setActionOpen] = useState(false);
+  const [actionPreset, setActionPreset] = useState<ActionPreset | null>(null);
+  const openActionWith = (kind: "call" | "sms") => {
+    setActionPreset(kind === "call" ? { type: "전화 상담", memo: ACTION_MEMO_TEMPLATE.call } : { type: "문자", memo: ACTION_MEMO_TEMPLATE.sms(guide.sms) });
+    setActionOpen(true);
+  };
   const aiSummaryQuery = useQuery({
     queryKey: aiQueryKey,
     queryFn: async () => {
@@ -136,7 +154,15 @@ function PatientDetailContent({
           {risk.level === "정상" ? (
             <span className="inline-flex h-12 items-center rounded-xl bg-level-normal-soft px-4 font-semibold text-level-normal">경과 관찰 중</span>
           ) : (
-            <ActionDialog patientId={patient.id} />
+            <ActionDialog
+              patientId={patient.id}
+              open={actionOpen}
+              onOpenChange={(v) => {
+                setActionOpen(v);
+                if (!v) setActionPreset(null);
+              }}
+              preset={actionPreset}
+            />
           )}
         </div>
       </div>
@@ -195,11 +221,35 @@ function PatientDetailContent({
           {risk.cause && (
             <div className="mt-3 flex flex-wrap items-center gap-2 text-base">
               <span className="font-semibold">추정 원인</span> <CauseBadge cause={risk.cause} />
-              <span className="text-muted-foreground">· 권장 조치: {CAUSE_ACTION[risk.cause]}</span>
+              <span className="text-muted-foreground">· 권장 조치: {CAUSE_ACTION[risk.cause]} 자세한 순서와 연락 문장은 아래 '대응 가이드'에 있습니다.</span>
             </div>
           )}
           <p className="mt-2 text-xs text-muted-foreground">진단이나 처방 변경이 아닌 참고용 보조 정보입니다.</p>
         </section>
+
+        <div className={cn("min-w-0", !panel && "lg:col-span-3")}>
+          <ResponseGuide
+            guide={guide}
+            sheet={{
+              patientName: patient.name,
+              age: patient.age,
+              prescriptionStartDate: patient.prescription_start_date,
+              prescriptionWeeks: patient.prescription_weeks,
+              weeklyTargetDays: patient.weekly_target_days,
+              sessionTargetMinutes: patient.session_target_minutes,
+              adherence: risk.metrics.adherence,
+              recentDays: risk.metrics.recentDays,
+              currentGap: risk.metrics.currentGap,
+              sessionsDone: risk.metrics.sessionsDone,
+              sessionsExpected: risk.metrics.sessionsExpected,
+              weeks,
+              notes: guide.plainSummary,
+              staffName: me?.staff?.name ?? null,
+            }}
+            normal={risk.level === "정상"}
+            onRecord={openActionWith}
+          />
+        </div>
 
         <Card title="위험 이유" className={cn("min-w-0", !panel && "lg:col-span-1")}>
           <ul className="space-y-2">
@@ -374,11 +424,32 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
-function ActionDialog({ patientId }: { patientId: string }) {
+type ActionPreset = { type: (typeof ACTION_TYPES)[number]; memo: string };
+
+function ActionDialog({
+  patientId,
+  open: openProp,
+  onOpenChange,
+  preset,
+}: {
+  patientId: string;
+  open?: boolean;
+  onOpenChange?: (v: boolean) => void;
+  /** 대응 가이드에서 열면 유형과 메모 틀을 미리 채운다 */
+  preset?: ActionPreset | null;
+}) {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [innerOpen, setInnerOpen] = useState(false);
+  const open = openProp ?? innerOpen;
+  const setOpen = (v: boolean) => (onOpenChange ? onOpenChange(v) : setInnerOpen(v));
   const [type, setType] = useState<(typeof ACTION_TYPES)[number]>("전화 상담");
   const [memo, setMemo] = useState("");
+  useEffect(() => {
+    if (open && preset) {
+      setType(preset.type);
+      setMemo(preset.memo);
+    }
+  }, [open, preset]);
   const mutation = useMutation({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();

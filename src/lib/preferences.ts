@@ -11,7 +11,8 @@ export type DefaultFilter = "전체" | "알림 대상";
 
 export interface Preferences {
   theme: ThemePref;
-  largeText: boolean;
+  /** 글자 크기 (%, 100 = 기본) */
+  textScale: number;
   reduceMotion: boolean;
   /** 알림 후 며칠이 지나면 '지연'으로 볼지 */
   overdueDays: number;
@@ -23,7 +24,7 @@ export interface Preferences {
 
 export const DEFAULT_PREFERENCES: Preferences = {
   theme: "system",
-  largeText: false,
+  textScale: 100,
   reduceMotion: false,
   overdueDays: 2,
   firstTab: "last",
@@ -31,12 +32,17 @@ export const DEFAULT_PREFERENCES: Preferences = {
 };
 
 export const PREFS_KEY = "rumble-strip:prefs";
+export const TEXT_SCALE_MIN = 80;
+export const TEXT_SCALE_MAX = 150;
+export const TEXT_SCALE_STEP = 5;
+const clampScale = (v: number) =>
+  Math.min(TEXT_SCALE_MAX, Math.max(TEXT_SCALE_MIN, Math.round(v / TEXT_SCALE_STEP) * TEXT_SCALE_STEP));
 const listeners = new Set<() => void>();
 let cache: Preferences | null = null;
 
 function read(): Preferences {
   if (cache) return cache;
-  let v: Partial<Preferences> = {};
+  let v: Partial<Preferences> & { largeText?: boolean } = {};
   try {
     const raw = typeof window !== "undefined" ? window.localStorage.getItem(PREFS_KEY) : null;
     if (raw) v = JSON.parse(raw) as Partial<Preferences>;
@@ -45,7 +51,8 @@ function read(): Preferences {
   }
   cache = {
     theme: v.theme === "light" || v.theme === "dark" ? v.theme : "system",
-    largeText: v.largeText === true,
+    // 예전 '글자 크게 보기'(켜기/끄기)를 쓰던 사람은 110%로 이어 받는다
+    textScale: typeof v.textScale === "number" ? clampScale(v.textScale) : v.largeText === true ? 110 : 100,
     reduceMotion: v.reduceMotion === true,
     overdueDays: Number.isInteger(v.overdueDays) && v.overdueDays! >= 1 && v.overdueDays! <= 7 ? v.overdueDays! : 2,
     firstTab: (["last", "alerts", "contact", "outcomes"] as const).includes(v.firstTab as FirstTab) ? (v.firstTab as FirstTab) : "last",
@@ -56,6 +63,7 @@ function read(): Preferences {
 
 export function setPreferences(patch: Partial<Preferences>) {
   cache = { ...read(), ...patch };
+  cache.textScale = clampScale(cache.textScale);
   try {
     window.localStorage.setItem(PREFS_KEY, JSON.stringify(cache));
   } catch {
@@ -83,8 +91,9 @@ export function applyPreferences(p: Preferences) {
   const dark = p.theme === "dark" || (p.theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
   root.classList.toggle("dark", dark);
   root.style.colorScheme = dark ? "dark" : "light";
-  if (p.largeText) root.dataset["text"] = "large";
-  else delete root.dataset["text"];
+  // rem 단위(대부분의 글자·간격)와 본문 기본 글자(styles.css의 --text-scale)를 함께 키운다
+  root.style.fontSize = p.textScale === 100 ? "" : `${p.textScale}%`;
+  root.style.setProperty("--text-scale", String(p.textScale / 100));
   if (p.reduceMotion) root.dataset["motion"] = "reduce";
   else delete root.dataset["motion"];
 }
@@ -102,4 +111,4 @@ export function watchSystemTheme() {
  * 첫 화면이 그려지기 전에 실행할 스크립트(깜빡임 방지). __root.tsx의 <head>에 넣는다.
  * 위 applyPreferences와 같은 규칙이다.
  */
-export const PREFS_BOOT_SCRIPT = `(function(){try{var p=JSON.parse(localStorage.getItem(${JSON.stringify(PREFS_KEY)})||"{}");var r=document.documentElement;var d=p.theme==="dark"||(p.theme!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);if(d)r.classList.add("dark");r.style.colorScheme=d?"dark":"light";if(p.largeText===true)r.dataset.text="large";if(p.reduceMotion===true)r.dataset.motion="reduce";}catch(e){}})();`;
+export const PREFS_BOOT_SCRIPT = `(function(){try{var p=JSON.parse(localStorage.getItem(${JSON.stringify(PREFS_KEY)})||"{}");var r=document.documentElement;var d=p.theme==="dark"||(p.theme!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);if(d)r.classList.add("dark");r.style.colorScheme=d?"dark":"light";var t=typeof p.textScale==="number"?p.textScale:(p.largeText===true?110:100);t=Math.min(${TEXT_SCALE_MAX},Math.max(${TEXT_SCALE_MIN},t));if(t!==100)r.style.fontSize=t+"%";r.style.setProperty("--text-scale",String(t/100));if(p.reduceMotion===true)r.dataset.motion="reduce";}catch(e){}})();`;

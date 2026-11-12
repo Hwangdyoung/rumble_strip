@@ -62,7 +62,7 @@ npm run format  # prettier
   지정할 때 그 환자의 처리 안 된 미지정 알림도 배정된다. 조치완료가 되면 `resolved_at`을 기록한다.
 - 헤더 이름표를 누르면 프로필 펼침 메뉴(이름·역할·아이디, 담당 환자 수, 내가 맡은 알림 수, 설정, 로그아웃).
 - 설정(`settings.tsx`, `?section=`): 왼쪽 카테고리 + 오른쪽 상세(휴대폰은 목록 → 상세).
-  계정(이름·역할, 비밀번호) / 화면(테마: 기기 설정·밝게·어둡게, 글자 크게, 움직임 줄이기) /
+  계정(이름·역할, 비밀번호) / 화면(테마: 기기 설정·밝게·어둡게, 글자 크기 80~150% 슬라이더, 움직임 줄이기) /
   업무(알림 기준, 지연 기준 일수, '오늘 업무' 첫 탭, 환자 목록 기본 필터) / 데이터(알림 결과 CSV) / 정보(점수 기준, 안내).
   화면·업무 설정은 `src/lib/preferences.ts`(브라우저 저장, useSyncExternalStore로 즉시 반영),
   알림 기준은 `src/lib/alert-settings.ts`. 다크 모드는 html의 `.dark` 클래스와 `styles.css`의 `.dark` 토큰,
@@ -76,10 +76,14 @@ npm run format  # prettier
   회원가입은 실제 이메일로만 받는다.
 - 시뮬레이터(`simulator.tsx`): 저장 없는 미리보기 전용. 가정한 플레이·미접속을 순서대로 쌓아 `computeRisk`로 계산만 한다.
   DB·대시보드·알림을 바꾸지 않는다. 알림 조건에 해당하면 안내 문구만 띄운다.
-- `src/components/PatientDetail.tsx`: 환자 상세. 점수 구성 카드, 핵심 지표, AI 경과 요약(+근거 수치 칩), 위험 이유,
+- `src/components/PatientDetail.tsx`: 환자 상세. 점수 구성 카드, 핵심 지표, AI 경과 요약(+근거 수치 칩), 대응 가이드, 위험 이유,
   점수 추이 그래프, 주별 그래프, 플레이 캘린더, 알림(상태·결과·메모), 조치 기록.
   - '점수 구성' 카드: `risk.breakdown` 항목 + `risk.adjustment`(단계 구간 보정) 합계 = `risk.score`.
   - 근거 칩: AI 요약이면 `aiInputChips`(Claude에 보낸 수치), 규칙 기반이면 `summaryEvidence`(문장에 쓰인 수치).
+- 대응 가이드(`ResponseGuide.tsx`, 문구는 `src/lib/response-guide.ts`): 단계·추정 원인·지표 숫자로 할 일, 전화 문장, 문자,
+  보호자용 쉬운 설명(점수 없이, 복사, A4 '스타러커스 사용 안내' 인쇄: `src/lib/guardian-sheet.ts`)을 만든다. 처리 안 된 알림 결과가 '연락 불가'면 다음 단계 안내를 앞에 보여 준다.
+  '전화했어요'·'문자 보냈어요'를 누르면 조치 기록 창이 유형·메모 틀이 채워진 채로 열린다. 문자는 앱에서 보내지 않는다(복사만).
+  문구는 Claude가 쓴 초기 예시이며 현장 검토 전이다(화면에 표시). 진단·처방 변경·약물 표현 금지를 테스트로 확인한다.
 - `src/components/AlertsBell.tsx`: 종 아이콘 알림 목록(최근 30건). 알림마다 결과 버튼(메모는 환자 상세에서만).
 - `src/lib/risk.ts`: 위험 점수·단계 계산의 유일한 위치. 임계값은 `RISK_CONFIG`. 점수는 클라이언트에서 play_logs로 계산한다.
 - `src/lib/daily-check.ts`: 매일 점검 계획(`planDailyCheck`, 순수 함수), 한국 시간 `koreaNow`, Cron 인증 `isAuthorizedCron`.
@@ -194,7 +198,7 @@ npm run format  # prettier
 - 예전 시뮬레이터가 실제로 저장한 play_logs·risk_scores 정리 여부 결정(삭제는 사용자 확인 후).
   2026-11-11 기준 alerts는 매일 점검이 만든 3건뿐이었다. play_logs·risk_scores는 확인하지 않았다
 - 회원가입이 열려 있다(가입해도 배정 전에는 아무 환자도 안 보임). 실제 운영 전에는 Supabase에서 가입을 막고 관리자가 계정을 만드는 방식 검토
-- 단계별 대응 가이드·보호자 통화 문장(2차 페르소나 평가 남은 걱정 3위)
+- 대응 가이드 문구 현장 검토, 관리자가 문구를 화면에서 고치는 기능(DB 필요), 실제 문자 발송 연동 검토
 - Lovable 전용 코드 정리(`lovable-error-reporting.ts`, `previewAuthStorage.ts`, `cron-auth.ts`, `@lovable.dev/vite-tanstack-config`)
 - 예전 상태가 남은 문서·설정 확인: `supabase/config.toml`의 `project_id`가 `.env`의 새 프로젝트와 다름,
   `README.md`는 Lovable 템플릿 그대로, `AGENTS.md` 본문의 "staff-only RLS" 설명은 003 이후 담당 환자 기준과 다름,
