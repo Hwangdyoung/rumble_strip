@@ -114,7 +114,7 @@ export function runDailyCheck() {
 
 export const STAFF_ROLES = ["의사", "간호사", "상담원"] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
-/** is_demo: 전시회 둘러보기 계정(SQL 011). 011 실행 전 DB에는 열이 없어 false로 본다. */
+/** is_demo: '로그인 없이 둘러보기' 계정(SQL 011). 011 실행 전 DB에는 열이 없어 false로 본다. */
 export type Staff = { id: string; name: string; role: string; is_admin: boolean; is_demo?: boolean; is_contact?: boolean };
 
 /** 로그인한 사람의 의료진 정보. 아직 입력하지 않았으면 staff는 null */
@@ -408,7 +408,7 @@ export const setupInvitesQuery = () =>
   });
 
 /**
- * 전시회 둘러보기의 시연 기준 (관리자만, SQL 011). 기준 내용(data)은 읽지 않는다(열 권한으로 막힘).
+ * '로그인 없이 둘러보기'의 시연 기준 (관리자만, SQL 011). 기준 내용(data)은 읽지 않는다(열 권한으로 막힘).
  * 011 실행 전이면 ready=false.
  */
 export const demoBaselineQuery = () =>

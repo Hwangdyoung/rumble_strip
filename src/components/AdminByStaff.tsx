@@ -38,7 +38,7 @@ export function AdminByStaff({
   busy: boolean;
   onRole: (staffId: string, role: StaffRole) => void;
   onAdmin: (staffId: string, on: boolean) => void;
-  /** 전시회 둘러보기 계정 켜기·끄기 (관리자 계정은 둘러보기 계정이 될 수 없음) */
+  /** '로그인 없이 둘러보기' 계정 켜기·끄기 (관리자 계정은 둘러보기 계정이 될 수 없음) */
   onDemo: (staffId: string, on: boolean) => void;
   onLink: (patientId: string, staffId: string) => void;
   onUnlink: (patientId: string, staffId: string) => void;

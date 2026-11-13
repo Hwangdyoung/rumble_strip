@@ -51,7 +51,7 @@ function AuthPage() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-secondary px-4 py-10">
+    <div className="grid min-h-screen place-items-center bg-secondary px-4 pb-10 pt-20 sm:py-10">
       <div className="w-full max-w-md">
         <div className="mb-6 flex justify-center">
           <Logo />

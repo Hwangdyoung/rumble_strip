@@ -7,7 +7,7 @@ export interface StaffItem {
   name: string;
   role: string;
   is_admin: boolean;
-  /** 전시회 둘러보기 계정 (SQL 011) */
+  /** '로그인 없이 둘러보기' 계정 (SQL 011) */
   is_demo?: boolean;
 }
 export interface PatientItem {

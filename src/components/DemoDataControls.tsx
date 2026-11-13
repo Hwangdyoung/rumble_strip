@@ -10,7 +10,7 @@ const when = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString("ko-KR", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "없음";
 
 /**
- * 관리자: 전시회 둘러보기의 시연 기준 저장·되돌리기 (설정 → 데이터, SQL 011).
+ * 관리자: '로그인 없이 둘러보기'의 시연 기준 저장·되돌리기 (설정 → 데이터, SQL 011).
  * 되돌리기는 기준 저장 뒤에 바뀐 연락 기록·넘긴 기록·다음 연락 일정·담당 연결·알림 상태를 모두 기준으로 돌린다.
  * 매일 점검(Cron) 때도 둘러보기가 켜져 있으면 자동으로 되돌린다.
  */

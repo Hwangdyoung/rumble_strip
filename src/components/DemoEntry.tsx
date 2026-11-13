@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Eye, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { myStaffQuery } from "@/lib/queries";
 import { demoSignIn, getDemoStatus } from "@/lib/demo.server";
 import type { DemoRole } from "@/lib/demo";
@@ -15,13 +16,15 @@ const ROLE_HINT: Record<DemoRole, string> = {
 };
 
 /**
- * 로그인 화면의 '로그인 없이 둘러보기' (전시회용, SQL 011).
- * 서버가 둘러보기를 켜 두었고(DEMO_MODE=on) 둘러보기 계정이 있는 역할만 버튼을 보여 준다. 꺼져 있으면 아무것도 그리지 않는다.
+ * 로그인 화면 오른쪽 위 모서리의 '로그인 없이 둘러보기' 버튼 (SQL 011).
+ * 누르면 역할(의사·간호사·상담원)을 고르는 창이 열리고, 고르면 그 역할의 둘러보기 계정으로 바로 들어간다.
+ * 서버가 둘러보기를 켜 두었고(DEMO_MODE=on) 둘러보기 계정이 있는 역할만 보여 준다. 꺼져 있으면 아무것도 그리지 않는다.
  */
 export function DemoEntry() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { data } = useQuery({ queryKey: ["demo-status"], queryFn: () => getDemoStatus(), staleTime: 60_000, retry: false });
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<DemoRole | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,28 +48,37 @@ export function DemoEntry() {
   }
 
   return (
-    <section className="mb-4 rounded-2xl border-2 border-primary/40 bg-card p-5 shadow-card sm:p-6" aria-labelledby="demo-title">
-      <h2 id="demo-title" className="flex items-center gap-2 text-lg font-bold">
-        <Eye className="size-5 text-primary" aria-hidden /> 로그인 없이 둘러보기
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground">역할을 고르면 바로 들어갑니다. 모든 환자는 가상 인물입니다.</p>
-      <div className="mt-4 grid gap-2">
-        {data.roles.map((role) => (
-          <Button
-            key={role}
-            type="button"
-            variant="outline"
-            disabled={busy !== null}
-            onClick={() => enter(role)}
-            className="h-auto min-h-12 justify-between gap-3 px-4 py-2.5 text-left"
-          >
-            <span className="text-base font-semibold">{busy === role ? "들어가는 중…" : `${role}로 둘러보기`}</span>
-            <span className="text-sm font-normal text-muted-foreground">{ROLE_HINT[role]}</span>
-          </Button>
-        ))}
+    <>
+      <div className="fixed right-0 top-0 z-20 p-4 sm:p-6">
+        <Button type="button" variant="outline" onClick={() => { setError(null); setOpen(true); }} className="h-10 rounded-full bg-card shadow-card">
+          <Eye className="size-4" aria-hidden /> 로그인 없이 둘러보기
+        </Button>
       </div>
-      {error && <p className="mt-3 rounded-lg bg-level-risk-soft px-3 py-2 text-sm text-level-risk" role="alert">{error}</p>}
-    </section>
+      <Dialog open={open} onOpenChange={(v) => { if (!busy) setOpen(v); }}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">로그인 없이 둘러보기</DialogTitle>
+            <DialogDescription>역할을 고르면 바로 들어갑니다. 모든 환자는 가상 인물이며, 남긴 기록은 정해진 때 처음 상태로 돌아갑니다.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            {data.roles.map((role) => (
+              <Button
+                key={role}
+                type="button"
+                variant="outline"
+                disabled={busy !== null}
+                onClick={() => enter(role)}
+                className="h-auto min-h-12 justify-between gap-3 px-4 py-2.5 text-left"
+              >
+                <span className="text-base font-semibold">{busy === role ? "들어가는 중…" : role}</span>
+                <span className="text-sm font-normal text-muted-foreground">{ROLE_HINT[role]}</span>
+              </Button>
+            ))}
+          </div>
+          {error && <p className="rounded-lg bg-level-risk-soft px-3 py-2 text-sm text-level-risk" role="alert">{error}</p>}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

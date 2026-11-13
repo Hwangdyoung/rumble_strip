@@ -349,7 +349,7 @@ function DataSection() {
       )}
     </Block>
     {me?.staff?.is_admin && (
-      <Block title="전시회 둘러보기" description="로그인 화면 '둘러보기'로 들어온 방문자가 남긴 기록을 처음 상태로 되돌립니다. 관리자만 볼 수 있습니다.">
+      <Block title="둘러보기 데이터" description="로그인 화면의 '로그인 없이 둘러보기'로 들어온 방문자가 남긴 기록을 처음 상태로 되돌립니다. 관리자만 볼 수 있습니다.">
         <DemoDataControls />
       </Block>
     )}

@@ -411,7 +411,7 @@ export type Database = {
           created_at: string
           id: string
           is_admin: boolean
-          /** SQL 011: 전시회 둘러보기 계정 */
+          /** SQL 011: '로그인 없이 둘러보기' 계정 */
           is_demo: boolean
           name: string
           role: string
