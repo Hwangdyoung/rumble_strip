@@ -58,6 +58,7 @@ export const createStaffAccount = createServerFn({ method: "POST" })
       email_confirm: true,
     });
     if (error || !created.user) {
+      console.error("[staff-account] 계정 만들기 실패(auth.createUser)", error?.code, error?.message);
       const exists = error?.code === "email_exists" || /already/i.test(error?.message ?? "");
       throw new Error(exists ? "이미 있는 아이디입니다. 다른 아이디를 정해 주세요." : "계정을 만들지 못했습니다. 다시 시도해 주세요.");
     }
@@ -65,6 +66,7 @@ export const createStaffAccount = createServerFn({ method: "POST" })
 
     const { error: sErr } = await supabaseAdmin.from("staff").insert({ id, name: data.name, role: data.role });
     if (sErr) {
+      console.error("[staff-account] 계정 만들기 실패(staff 저장)", sErr.code, sErr.message, sErr.details);
       await supabaseAdmin.auth.admin.deleteUser(id);
       throw new Error("계정을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.");
     }
@@ -79,6 +81,7 @@ export const createStaffAccount = createServerFn({ method: "POST" })
       created_by: context.userId,
     });
     if (iErr) {
+      console.error("[staff-account] 계정 만들기 실패(초대 코드 저장)", iErr.code, iErr.message, iErr.details);
       await supabaseAdmin.from("staff").delete().eq("id", id);
       await supabaseAdmin.auth.admin.deleteUser(id);
       throw new Error("계정을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.");
