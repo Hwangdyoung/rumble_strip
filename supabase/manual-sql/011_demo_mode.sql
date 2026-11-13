@@ -40,6 +40,11 @@ grant select (id, saved_at, saved_by, reset_at) on public.demo_baseline to authe
 drop policy if exists demo_baseline_admin_read on public.demo_baseline;
 create policy demo_baseline_admin_read on public.demo_baseline for select to authenticated using (public.is_admin());
 
+-- 같은 이름의 함수가 이미 있으면 반환 형식이 달라 바꿀 수 없으므로 먼저 지운다(2026-11-13, 처음 실행 때 42P13 오류).
+-- 이 두 함수에 기대는 정책·다른 함수는 없어서 지워도 된다.
+drop function if exists public.save_demo_baseline();
+drop function if exists public.reset_demo_data();
+
 -- 3) 지금 상태를 시연 기준으로 저장 (관리자)
 create or replace function public.save_demo_baseline()
 returns timestamptz language plpgsql security definer set search_path = public as $$
