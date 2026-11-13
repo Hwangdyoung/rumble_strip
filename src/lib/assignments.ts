@@ -93,3 +93,24 @@ export function patientsToLink(patientIds: string[], staffId: string, links: Lin
   const have = new Set(links.filter((l) => l.staff_id === staffId).map((l) => l.patient_id));
   return [...new Set(patientIds)].filter((id) => !have.has(id));
 }
+
+const ROLE_ORDER = ["의사", "간호사", "상담원"];
+
+/**
+ * 환자별 탭의 담당 의료진 표시: 역할별 줄로 묶는다(의사 → 간호사 → 상담원 → 그 밖).
+ * 줄 안에서는 들어온 순서를 지킨다(patientRows가 연락 담당을 먼저 둠).
+ * limit을 주면 앞에서부터 그 수만 보여 주고 나머지 수를 hidden으로 돌려준다(연락 담당은 늘 보임).
+ */
+export function staffByRole<T extends { role: string }>(staff: T[], limit?: number): { groups: Array<{ role: string; people: T[] }>; hidden: number } {
+  const visible = limit === undefined ? staff : staff.slice(0, Math.max(0, limit));
+  const roles = [...new Set(visible.map((s) => s.role))].sort((a, b) => {
+    const ia = ROLE_ORDER.indexOf(a);
+    const ib = ROLE_ORDER.indexOf(b);
+    return (ia < 0 ? ROLE_ORDER.length : ia) - (ib < 0 ? ROLE_ORDER.length : ib) || a.localeCompare(b, "ko");
+  });
+  return {
+    groups: roles.map((role) => ({ role, people: visible.filter((s) => s.role === role) })),
+    hidden: staff.length - visible.length,
+  };
+}
+

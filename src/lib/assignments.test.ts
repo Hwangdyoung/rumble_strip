@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterPatientRows, filterStaffRows, patientRows, patientsToLink, searchByName, staffRows, type LinkItem, type StaffItem } from "./assignments";
+import { filterPatientRows, filterStaffRows, patientRows, patientsToLink, searchByName, staffByRole, staffRows, type LinkItem, type StaffItem } from "./assignments";
 
 const staff: StaffItem[] = [
   { id: "a", name: "관리자", role: "의사", is_admin: true },
@@ -69,3 +69,27 @@ describe("patientsToLink", () => {
     expect(patientsToLink(["p1", "p2"], "new", links)).toEqual(["p1", "p2"]);
   });
 });
+
+describe("staffByRole", () => {
+  const people = [
+    { id: "c", role: "간호사" },
+    { id: "d1", role: "의사" },
+    { id: "n2", role: "간호사" },
+    { id: "s1", role: "상담원" },
+    { id: "d2", role: "의사" },
+  ];
+  it("의사 → 간호사 → 상담원 순서로 묶고, 줄 안 순서는 그대로", () => {
+    expect(staffByRole(people).groups).toEqual([
+      { role: "의사", people: [people[1], people[4]] },
+      { role: "간호사", people: [people[0], people[2]] },
+      { role: "상담원", people: [people[3]] },
+    ]);
+    expect(staffByRole(people).hidden).toBe(0);
+  });
+  it("limit이면 앞에서부터만 보이고 나머지 수를 알려 준다(첫 사람 = 연락 담당은 늘 보임)", () => {
+    const r = staffByRole(people, 3);
+    expect(r.hidden).toBe(2);
+    expect(r.groups.flatMap((g) => g.people.map((p) => p.id))).toEqual(["d1", "c", "n2"]);
+  });
+});
+
