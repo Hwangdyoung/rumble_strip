@@ -58,7 +58,7 @@ npm run build
 | `SUPABASE_SERVICE_ROLE_KEY` | 계정 만들기·초대 코드, 상담원 화면 데이터, 매일 점검 Cron |
 | `CRON_SECRET` | `/api/daily-check` 호출 확인 |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`(선택) | AI 경과 요약 |
-| `DEMO_MODE` | `on`이면 로그인 화면에 전시회용 '둘러보기' 버튼 (끄려면 지움) |
+| `DEMO_MODE` | `on`이면 로그인 화면 모서리에 '로그인 없이 둘러보기' 버튼 (끄려면 지움) |
 
 로컬에 `SUPABASE_SERVICE_ROLE_KEY`가 없으면 계정 만들기·계정 활성화는 실패합니다(정상).
 
@@ -69,7 +69,7 @@ npm run build
 1. `drizzle/migrations/*.sql` (기본 테이블)
 2. `supabase/manual-sql/` 번호 순서: 001 알림 결과 → 002 매일 점검 → 003 담당 환자 RLS → 004 관리자 아이디 →
    005 알림 담당자 → 006 넘기기·다음 연락 → 007 환자 단위 맡기·넘기기 → 008 담당자별 업무량 →
-   009 역할별 접근 → 010 초대 코드 → 011 전시회 둘러보기
+   009 역할별 접근 → 010 초대 코드 → 011 로그인 없이 둘러보기
 3. 권한 확인: `supabase/manual-sql/003_staff_rls_test.sql` (시험 중 바꾼 것은 자동으로 되돌립니다)
 
 ## 폴더
