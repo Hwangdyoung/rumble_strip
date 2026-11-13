@@ -272,6 +272,58 @@ begin
       res := res || format('26~29. 설정 코드 시험 실패: %s (코드 %s, 010을 실행했는지 확인)', sqlerrm, sqlstate) || E'\n';
     end;
 
+    -- 30~35) 둘러보기 (SQL 011). 시험 중 바꾼 것(기준 저장·되돌리기 포함)은 끝에서 모두 되돌아간다.
+    begin
+      execute 'reset role';
+      update public.staff set is_admin = false, is_demo = false where id = admin_id;
+      execute 'set local role authenticated';
+      begin
+        update public.staff set is_demo = true where id = admin_id;
+        get diagnostics n = row_count;
+        res := res || format('30. 일반 계정이 스스로 둘러보기 계정 되기: %s건 바뀜 (기대: 막힘)', n) || E'\n';
+      exception when others then
+        res := res || format('30. 일반 계정이 스스로 둘러보기 계정 되기: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
+      end;
+      begin
+        perform public.save_demo_baseline();
+        res := res || '31. 관리자 아닌 계정이 시연 기준 저장: 막히지 않음 (문제)' || E'\n';
+      exception when others then
+        res := res || format('31. 관리자 아닌 계정이 시연 기준 저장: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
+      end;
+      begin
+        perform public.reset_demo_data();
+        res := res || '32. 관리자 아닌 계정이 시연 데이터 되돌리기: 막히지 않음 (문제)' || E'\n';
+      exception when others then
+        res := res || format('32. 관리자 아닌 계정이 시연 데이터 되돌리기: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
+      end;
+
+      execute 'reset role';
+      update public.staff set is_demo = true where id = admin_id;
+      execute 'set local role authenticated';
+      update public.staff set name = name || '(바뀜)' where id = admin_id;
+      get diagnostics n = row_count;
+      res := res || format('33. 둘러보기 계정이 자기 이름 바꾸기: %s건 바뀜 (기대: 0)', n) || E'\n';
+
+      execute 'reset role';
+      update public.staff set is_demo = false, is_admin = true where id = admin_id;
+      select count(*) into total from public.actions;
+      execute 'set local role authenticated';
+      perform public.save_demo_baseline();
+      begin
+        select count(data) into n from public.demo_baseline;
+        res := res || '34. 관리자가 시연 기준 내용 직접 읽기: 막히지 않음 (문제)' || E'\n';
+      exception when others then
+        res := res || format('34. 관리자가 시연 기준 저장 성공, 내용 직접 읽기는 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
+      end;
+      perform public.reset_demo_data();
+      execute 'reset role';
+      select count(*) into n from public.actions;
+      execute 'set local role authenticated';
+      res := res || format('35. 관리자가 되돌리기 실행: 연락 기록 %s건 → %s건 (기대: 같음)', total, n) || E'\n';
+    exception when others then
+      res := res || format('30~35. 둘러보기 시험 실패: %s (코드 %s, 011을 실행했는지 확인)', sqlerrm, sqlstate) || E'\n';
+    end;
+
     -- 여기까지의 변경을 모두 되돌리기 위해 일부러 예외를 낸다 (결과 문장을 함께 실어 보냄)
     raise exception 'RESULT:%', res;
   exception when others then

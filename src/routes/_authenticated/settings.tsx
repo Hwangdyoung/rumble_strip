@@ -12,6 +12,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { PasswordChangeForm, StaffProfileForm } from "@/components/StaffProfile";
 import { AlertOutcomeSummary } from "@/components/AlertOutcome";
+import { DemoDataControls } from "@/components/DemoDataControls";
 import { MAX_CAPACITY, useAlertSettings } from "@/lib/alert-settings";
 import { toCsv } from "@/lib/csv";
 import { displayLoginId } from "@/lib/login-id";
@@ -142,6 +143,14 @@ function ToggleRow({ id, label, description, checked, onChange }: { id: string; 
 
 function AccountSection() {
   const { data: me } = useQuery(myStaffQuery());
+  // 둘러보기 계정은 이름·비밀번호를 바꾸지 않는다(다음 방문자에게 그대로 보이도록, DB에서도 막음: SQL 011)
+  if (me?.staff?.is_demo) {
+    return (
+      <Block title="둘러보기 계정" description={`${me.staff.name} · ${me.staff.role}`}>
+        <p className="text-sm text-muted-foreground">둘러보기 계정은 이름과 비밀번호를 변경할 수 없습니다.</p>
+      </Block>
+    );
+  }
   return (
     <>
       <Block title="내 정보" description={`담당자 목록과 환자 상세에 보이는 이름과 역할입니다.${me?.email ? ` 로그인 아이디: ${displayLoginId(me.email)}` : ""}`}>
@@ -339,6 +348,11 @@ function DataSection() {
         </p>
       )}
     </Block>
+    {me?.staff?.is_admin && (
+      <Block title="전시회 둘러보기" description="로그인 화면 '둘러보기'로 들어온 방문자가 남긴 기록을 처음 상태로 되돌립니다. 관리자만 볼 수 있습니다.">
+        <DemoDataControls />
+      </Block>
+    )}
     </>
   );
 }

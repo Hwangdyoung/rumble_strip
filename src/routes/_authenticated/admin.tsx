@@ -84,8 +84,12 @@ function AdminContent({ myId }: { myId: string }) {
     onError: () => toast.error("연락 담당을 바꾸지 못했습니다. 다시 시도해 주세요."),
   });
   const upd = useMutation({
-    mutationFn: (v: { staffId: string; role?: StaffRole; is_admin?: boolean }) =>
-      updateStaff(v.staffId, { ...(v.role ? { role: v.role } : {}), ...(v.is_admin !== undefined ? { is_admin: v.is_admin } : {}) }),
+    mutationFn: (v: { staffId: string; role?: StaffRole; is_admin?: boolean; is_demo?: boolean }) =>
+      updateStaff(v.staffId, {
+        ...(v.role ? { role: v.role } : {}),
+        ...(v.is_admin !== undefined ? { is_admin: v.is_admin } : {}),
+        ...(v.is_demo !== undefined ? { is_demo: v.is_demo } : {}),
+      }),
     onSuccess: refresh,
     onError: () => toast.error("의료진 정보를 변경하지 못했습니다. 다시 시도해 주세요."),
   });
@@ -159,6 +163,7 @@ function AdminContent({ myId }: { myId: string }) {
             busy={busy}
             onRole={(staffId, role) => upd.mutate({ staffId, role })}
             onAdmin={(staffId, on) => upd.mutate({ staffId, is_admin: on })}
+            onDemo={(staffId, on) => upd.mutate({ staffId, is_demo: on })}
             onLink={(patientId, staffId) => link.mutate({ patientId, staffId, on: true })}
             onUnlink={(patientId, staffId) => link.mutate({ patientId, staffId, on: false })}
             onCreated={refresh}

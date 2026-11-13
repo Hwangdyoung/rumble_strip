@@ -114,7 +114,8 @@ export function runDailyCheck() {
 
 export const STAFF_ROLES = ["의사", "간호사", "상담원"] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
-export type Staff = { id: string; name: string; role: string; is_admin: boolean; is_contact?: boolean };
+/** is_demo: 전시회 둘러보기 계정(SQL 011). 011 실행 전 DB에는 열이 없어 false로 본다. */
+export type Staff = { id: string; name: string; role: string; is_admin: boolean; is_demo?: boolean; is_contact?: boolean };
 
 /** 로그인한 사람의 의료진 정보. 아직 입력하지 않았으면 staff는 null */
 export const myStaffQuery = () =>
@@ -123,9 +124,11 @@ export const myStaffQuery = () =>
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return { userId: null, email: null, staff: null as Staff | null };
-      const { data, error } = await supabase.from("staff").select("id, name, role, is_admin").eq("id", u.user.id).maybeSingle();
+      // select("*"): is_demo 열(SQL 011)이 없는 DB에서도 에러 없이 읽히게
+      const { data, error } = await supabase.from("staff").select("*").eq("id", u.user.id).maybeSingle();
       if (error) throw error;
-      return { userId: u.user.id, email: u.user.email ?? null, staff: (data ?? null) as Staff | null };
+      const staff: Staff | null = data ? { id: data.id, name: data.name, role: data.role, is_admin: data.is_admin, is_demo: Boolean(data.is_demo) } : null;
+      return { userId: u.user.id, email: u.user.email ?? null, staff };
     },
     staleTime: 5 * 60_000,
   });
@@ -134,9 +137,9 @@ export const staffListQuery = () =>
   queryOptions({
     queryKey: ["staff"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("staff").select("id, name, role, is_admin").order("name");
+      const { data, error } = await supabase.from("staff").select("*").order("name");
       if (error) throw error;
-      return (data ?? []) as Staff[];
+      return (data ?? []).map((d): Staff => ({ id: d.id, name: d.name, role: d.role, is_admin: d.is_admin, is_demo: Boolean(d.is_demo) }));
     },
   });
 
@@ -215,7 +218,7 @@ export async function linkPatientsToStaff(patientIds: string[], staffId: string)
 }
 
 /** 관리자: 의료진 역할·관리자 여부 변경 */
-export async function updateStaff(staffId: string, patch: { role?: StaffRole; is_admin?: boolean }) {
+export async function updateStaff(staffId: string, patch: { role?: StaffRole; is_admin?: boolean; is_demo?: boolean }) {
   const { error } = await supabase.from("staff").update(patch).eq("id", staffId);
   if (error) throw error;
 }
@@ -403,6 +406,31 @@ export const setupInvitesQuery = () =>
       return Object.fromEntries((data ?? []).map((r) => [r.staff_id, inviteState(r, now)]));
     },
   });
+
+/**
+ * 전시회 둘러보기의 시연 기준 (관리자만, SQL 011). 기준 내용(data)은 읽지 않는다(열 권한으로 막힘).
+ * 011 실행 전이면 ready=false.
+ */
+export const demoBaselineQuery = () =>
+  queryOptions({
+    queryKey: ["demo-baseline"],
+    queryFn: async (): Promise<{ ready: boolean; savedAt: string | null; resetAt: string | null }> => {
+      const { data, error } = await supabase.from("demo_baseline").select("saved_at, reset_at").eq("id", 1).maybeSingle();
+      if (error) return { ready: false, savedAt: null, resetAt: null };
+      return { ready: true, savedAt: data?.saved_at ?? null, resetAt: data?.reset_at ?? null };
+    },
+  });
+
+export async function saveDemoBaseline() {
+  const { error } = await supabase.rpc("save_demo_baseline");
+  if (error) throw error;
+}
+
+export async function resetDemoData() {
+  const { data, error } = await supabase.rpc("reset_demo_data");
+  if (error) throw error;
+  return data;
+}
 
 /** '오늘 연락할 환자' 목록 재료: 알림, 열린 다음 연락, 마지막 조치, 연락 담당 */
 export const contactListQuery = () =>

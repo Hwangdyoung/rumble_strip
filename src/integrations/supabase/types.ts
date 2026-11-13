@@ -411,6 +411,8 @@ export type Database = {
           created_at: string
           id: string
           is_admin: boolean
+          /** SQL 011: 전시회 둘러보기 계정 */
+          is_demo: boolean
           name: string
           role: string
         }
@@ -418,6 +420,7 @@ export type Database = {
           created_at?: string
           id: string
           is_admin?: boolean
+          is_demo?: boolean
           name: string
           role: string
         }
@@ -425,8 +428,34 @@ export type Database = {
           created_at?: string
           id?: string
           is_admin?: boolean
+          is_demo?: boolean
           name?: string
           role?: string
+        }
+        Relationships: []
+      }
+      // SQL 011. 시연 기준(한 줄). 화면(관리자)은 data를 뺀 열만 읽고, 쓰기는 함수 save_demo_baseline·reset_demo_data로만.
+      demo_baseline: {
+        Row: {
+          data: Json
+          id: number
+          reset_at: string | null
+          saved_at: string
+          saved_by: string | null
+        }
+        Insert: {
+          data: Json
+          id?: number
+          reset_at?: string | null
+          saved_at?: string
+          saved_by?: string | null
+        }
+        Update: {
+          data?: Json
+          id?: number
+          reset_at?: string | null
+          saved_at?: string
+          saved_by?: string | null
         }
         Relationships: []
       }
@@ -480,6 +509,9 @@ export type Database = {
       can_see_patient: { Args: { pid: string }; Returns: boolean }
       handoff_patient: { Args: { pid: string; to_staff: string; reason: string; note?: string }; Returns: undefined }
       is_admin: { Args: never; Returns: boolean }
+      is_demo_staff: { Args: never; Returns: boolean }
+      reset_demo_data: { Args: never; Returns: string }
+      save_demo_baseline: { Args: never; Returns: string }
       is_clinician: { Args: never; Returns: boolean }
       mark_alert_seen: { Args: { aid: string }; Returns: undefined }
       my_role: { Args: never; Returns: string }

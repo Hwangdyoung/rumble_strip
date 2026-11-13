@@ -23,6 +23,7 @@ export function AdminByStaff({
   busy,
   onRole,
   onAdmin,
+  onDemo,
   onLink,
   onUnlink,
   onCreated,
@@ -37,6 +38,8 @@ export function AdminByStaff({
   busy: boolean;
   onRole: (staffId: string, role: StaffRole) => void;
   onAdmin: (staffId: string, on: boolean) => void;
+  /** 전시회 둘러보기 계정 켜기·끄기 (관리자 계정은 둘러보기 계정이 될 수 없음) */
+  onDemo: (staffId: string, on: boolean) => void;
   onLink: (patientId: string, staffId: string) => void;
   onUnlink: (patientId: string, staffId: string) => void;
   /** 계정을 만든 뒤 목록 새로고침 */
@@ -88,6 +91,7 @@ export function AdminByStaff({
                   <span>
                     <span className="font-semibold">{s.name}</span>
                     {s.id === myId && <span className="ml-1.5 text-xs text-muted-foreground">(나)</span>}
+                    {s.is_demo && <span className="ml-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">둘러보기</span>}
                     {s.isNew && <span className="ml-1.5 rounded-full bg-level-caution-soft px-2 py-0.5 text-xs font-semibold text-level-caution-ink">새 계정</span>}
                     {pending && (
                       <span
@@ -119,12 +123,21 @@ export function AdminByStaff({
                       {STAFF_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </label>
+                  <label className="flex items-center gap-2 text-sm" title={s.is_admin ? "관리자 계정은 둘러보기 계정으로 쓸 수 없습니다" : "로그인 화면 '둘러보기'에서 이 계정으로 들어갑니다"}>
+                    <span className="text-muted-foreground">둘러보기</span>
+                    <Switch
+                      checked={Boolean(s.is_demo)}
+                      disabled={busy || s.is_admin}
+                      onCheckedChange={(v) => onDemo(s.id, v)}
+                      aria-label={`${s.name} 둘러보기 계정`}
+                    />
+                  </label>
                   <label className="flex items-center gap-2 text-sm">
                     <span className="text-muted-foreground">관리자</span>
                     <Switch
                       checked={s.is_admin}
-                      // 자기 관리자 권한은 스스로 끄지 못하게 (관리자가 아무도 없게 되는 것 방지)
-                      disabled={busy || s.id === myId}
+                      // 자기 관리자 권한은 스스로 끄지 못하게 (관리자가 아무도 없게 되는 것 방지). 둘러보기 계정은 관리자가 될 수 없음
+                      disabled={busy || s.id === myId || Boolean(s.is_demo)}
                       onCheckedChange={(v) => onAdmin(s.id, v)}
                       aria-label={`${s.name} 관리자 권한`}
                     />
