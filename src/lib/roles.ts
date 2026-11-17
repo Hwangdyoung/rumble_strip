@@ -15,7 +15,7 @@ export function canSeeClinical(staff: StaffLike): boolean {
 export const LIMITED_OUTCOMES = ["미정", "연락 불가"] as const;
 
 /** 정확도·세션 시간·반응 속도처럼 치료 경과에 가까운 이유 (상담원에게 보내지 않음) */
-const CLINICAL_REASON = /정확도|세션|반응 속도/;
+const CLINICAL_REASON = /정확도|세션|반응 속도|부딪힘|코인/;
 export const CLINICAL_REASON_NOTE = "게임 수행에 변화가 있어요 (자세한 내용은 의료진 확인)";
 
 /**

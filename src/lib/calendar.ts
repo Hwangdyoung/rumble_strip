@@ -16,6 +16,9 @@ export interface CalendarDay {
   sessions: number;
   tasks: number;
   endedEarly: boolean;
+  /** 게임 기록이 있는 날만: 그날 부딪힘·주운 코인 합 */
+  crashes: number | null;
+  coins: number | null;
   hasAction: boolean;
   hasAlert: boolean;
   isToday: boolean;
@@ -51,11 +54,13 @@ export function buildMonth(
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const offset = (first.getDay() + 6) % 7; // 월요일 시작
 
-  const byDay = new Map<string, { minutes: number; sessions: number; tasks: number; endedEarly: boolean }>();
+  const byDay = new Map<string, { minutes: number; sessions: number; tasks: number; endedEarly: boolean; crashes: number | null; coins: number | null }>();
   for (const l of logs) {
     if (l.play_minutes <= 0) continue;
     const key = toDateKey(new Date(l.session_start));
-    const cur = byDay.get(key) ?? { minutes: 0, sessions: 0, tasks: 0, endedEarly: false };
+    const cur = byDay.get(key) ?? { minutes: 0, sessions: 0, tasks: 0, endedEarly: false, crashes: null, coins: null };
+    if (l.crashes != null) cur.crashes = (cur.crashes ?? 0) + l.crashes;
+    if (l.coins != null) cur.coins = (cur.coins ?? 0) + l.coins;
     cur.minutes += l.play_minutes;
     cur.sessions += 1;
     cur.tasks += l.tasks_completed;
@@ -75,6 +80,8 @@ export function buildMonth(
       sessions: log?.sessions ?? 0,
       tasks: log?.tasks ?? 0,
       endedEarly: log?.endedEarly ?? false,
+      crashes: log?.crashes ?? null,
+      coins: log?.coins ?? null,
       hasAction: actionKeys.has(key),
       hasAlert: alertKeys.has(key),
       isToday: key === todayKey,

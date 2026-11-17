@@ -16,7 +16,7 @@ import { planDailyCheck } from "./daily-check";
 export async function runDailyCheckWith(client: SupabaseClient<Database>, now: Date, realNow: Date = new Date()) {
   const [{ data: patients, error: e1 }, { data: logs, error: e2 }, { data: stored, error: e3 }] = await Promise.all([
     client.from("patients").select("*"),
-    client.from("play_logs").select("patient_id, session_start, play_minutes, accuracy, reaction_ms"),
+    client.from("play_logs").select("*"), // crashes·coins(SQL 013) 포함, 없는 DB에서도 에러 없게
     client.from("risk_scores").select("patient_id, score, level, calculated_at, source, check_date"),
   ]);
   if (e1) throw e1;

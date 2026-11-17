@@ -328,6 +328,9 @@ export type Database = {
       play_logs: {
         Row: {
           accuracy: number | null
+          /** SQL 013: 게임 달리기의 주운 코인(coins)·부딪힌 횟수(crashes). 게임 기록만, 나머지는 null */
+          coins: number | null
+          crashes: number | null
           ended_early: boolean
           id: string
           patient_id: string
@@ -339,6 +342,8 @@ export type Database = {
         }
         Insert: {
           accuracy?: number | null
+          coins?: number | null
+          crashes?: number | null
           ended_early?: boolean
           id?: string
           patient_id: string
@@ -350,6 +355,8 @@ export type Database = {
         }
         Update: {
           accuracy?: number | null
+          coins?: number | null
+          crashes?: number | null
           ended_early?: boolean
           id?: string
           patient_id?: string

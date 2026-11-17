@@ -21,7 +21,7 @@ export const RISK_CONFIG = {
     치료이탈: [80, 100],
   } as Record<RiskLevel, [number, number]>,
   /** 점수식 계수 (가정값 — 의료진 자문과 실제 데이터로 보정) */
-  formula: { gapPerDay: 14, behindPerSession: 8, accuracyPerPp: 1.5, shortSessionBonus: 10 },
+  formula: { gapPerDay: 14, behindPerSession: 8, accuracyPerPp: 1.5, shortSessionBonus: 10, crashPerHit: 5, crashMaxPoints: 20 },
   /** 치료이탈: 처방 기간 중 현재 연속 미접속 일수 */
   dropoutGapDays: 7,
   /** 처음/최근 몇 회차를 비교할지 (정확도·세션·반응 속도) */
@@ -34,6 +34,10 @@ export const RISK_CONFIG = {
   easyAccuracy: 85,
   /** 참고 지표: 반응 속도가 이 비율 이상 느려지면 이유에 표시 (점수에는 반영하지 않음) */
   reactionSlowRatio: 0.15,
+  /** 게임 부딪힘(2026-11-17 추가, 가정값): 판당 평균 부딪힘이 이만큼 이상 늘면 이유에 표시. 점수는 crashPerHit·crashMaxPoints */
+  crashRiseReason: 1,
+  /** 참고 지표: 판당 평균 주운 코인이 이 비율 이상 줄면 이유에 표시 (점수에는 반영하지 않음) */
+  coinDropRatio: 0.3,
 };
 
 /** 원인별 권장 조치 */
@@ -55,10 +59,14 @@ export interface PlayLogLike {
   play_minutes: number;
   accuracy?: number | null | undefined; // 0~100 (%)
   reaction_ms?: number | null | undefined;
+  /** 게임 달리기에서 부딪힌 횟수 (게임 기록만, SQL 013) */
+  crashes?: number | null | undefined;
+  /** 게임 달리기에서 주운 코인 (게임 기록만, 점수에는 반영하지 않음) */
+  coins?: number | null | undefined;
 }
 
 export interface BreakdownItem {
-  key: "gap" | "behind" | "accuracy" | "shortSession";
+  key: "gap" | "behind" | "accuracy" | "shortSession" | "crashes";
   label: string;
   detail: string;
   points: number;
@@ -93,6 +101,9 @@ export interface RiskResult {
     recentAvgMinutes: number | null;
     shortSession: boolean;
     reactionChange: number | null; // 0.2 = 20% 느려짐
+    crashRise: number; // 판당 평균 부딪힘 증가(회), 늘어난 만큼 양수
+    recentCrashes: number | null; // 최근 K판 평균 부딪힘
+    coinChange: number | null; // -0.3 = 판당 코인 30% 감소 (참고)
   };
 }
 
@@ -129,7 +140,7 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
   // 날짜별 플레이 분
   const minutesByDay = new Array<number>(elapsedDays).fill(0);
   const sessionsByDay = new Array<number>(elapsedDays).fill(0);
-  const valid: { t: number; minutes: number; accuracy: number | null; reaction: number | null }[] = [];
+  const valid: { t: number; minutes: number; accuracy: number | null; reaction: number | null; crashes: number | null; coins: number | null }[] = [];
   let lastPlay = -1;
   for (const log of logs) {
     const idx = dayIndex(start, new Date(log.session_start));
@@ -143,6 +154,8 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
       minutes: log.play_minutes,
       accuracy: log.accuracy ?? null,
       reaction: log.reaction_ms ?? null,
+      crashes: log.crashes ?? null,
+      coins: log.coins ?? null,
     });
   }
   valid.sort((a, b) => a.t - b.t);
@@ -210,6 +223,19 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
   const kRt = Math.min(cfg.compareWindow, Math.floor(rts.length / 2));
   const reactionChange = kRt >= 2 ? (mean(rts.slice(-kRt)) - mean(rts.slice(0, kRt))) / mean(rts.slice(0, kRt)) : null;
 
+  // 게임 부딪힘: 처음 K판 평균 vs 최근 K판 평균 (정확도 하락과 같은 방식, 게임 기록만)
+  const crs = valid.filter((v) => v.crashes != null).map((v) => v.crashes as number);
+  const kCr = Math.min(cfg.compareWindow, Math.floor(crs.length / 2));
+  const crashRise = kCr >= 2 ? Math.max(0, mean(crs.slice(-kCr)) - mean(crs.slice(0, kCr))) : 0;
+  const recentCrashes = crs.length > 0 ? mean(crs.slice(-Math.min(cfg.compareWindow, crs.length))) : null;
+  const crashPoints = Math.min(f.crashMaxPoints, Math.round(crashRise * f.crashPerHit));
+
+  // 게임 코인 (참고 지표 — 점수에는 반영하지 않음)
+  const cns = valid.filter((v) => v.coins != null).map((v) => v.coins as number);
+  const kCn = Math.min(cfg.compareWindow, Math.floor(cns.length / 2));
+  const coinFirst = kCn >= 2 ? mean(cns.slice(0, kCn)) : 0;
+  const coinChange = kCn >= 2 && coinFirst > 0 ? (mean(cns.slice(-kCn)) - coinFirst) / coinFirst : null;
+
   // 짧은 세션: 최근 K회 평균 시간이 목표의 70% 미만
   const recentSessions = valid.slice(-cfg.compareWindow);
   const recentAvgMinutes = recentSessions.length > 0 ? mean(recentSessions.map((v) => v.minutes)) : null;
@@ -231,6 +257,15 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
       label: "짧은 세션",
       detail: shortSession ? `최근 평균 ${Math.round(recentAvgMinutes ?? 0)}분 (목표 ${patient.session_target_minutes}분)` : "해당 없음",
       points: shortSession ? f.shortSessionBonus : 0,
+    },
+    {
+      key: "crashes",
+      label: "부딪힘 증가",
+      detail:
+        crs.length === 0
+          ? "게임 기록 없음"
+          : `판당 ${crashRise.toFixed(1)}회 늘어남 × ${f.crashPerHit} (최대 ${f.crashMaxPoints})`,
+      points: crashPoints,
     },
   ];
   const rawScore = breakdown.reduce((a, b) => a + b.points, 0);
@@ -274,6 +309,8 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
   if (shortSession) reasons.push(`평균 세션 ${Math.round(recentAvgMinutes ?? 0)}분으로 짧아짐`);
   if (sessionChange <= -0.1 && !shortSession && recentAvg !== null) reasons.push(`세션 시간 ${Math.round(-sessionChange * 100)}% 감소`);
   if (reactionChange !== null && reactionChange >= cfg.reactionSlowRatio) reasons.push(`반응 속도 ${Math.round(reactionChange * 100)}% 느려짐`);
+  if (crashRise >= cfg.crashRiseReason) reasons.push(`게임에서 판당 부딪힘 ${crashRise.toFixed(1)}회 늘어남`);
+  if (coinChange !== null && coinChange <= -cfg.coinDropRatio) reasons.push(`게임에서 주운 코인 ${Math.round(-coinChange * 100)}% 감소`);
   if (sessionsBehind > 0) reasons.push(`처방 대비 ${sessionsBehind}회 지연`);
   if (windowLen >= 7) reasons.push(`최근 7일 중 ${rawRecent}일 접속`);
   else reasons.push(`최근 ${windowLen}일 중 ${rawRecent}일 접속`);
@@ -305,6 +342,9 @@ export function computeRisk(patient: PatientLike, logs: PlayLogLike[], asOf: Dat
       recentAvgMinutes,
       shortSession,
       reactionChange,
+      crashRise,
+      recentCrashes,
+      coinChange,
     },
   };
 }

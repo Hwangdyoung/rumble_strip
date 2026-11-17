@@ -64,6 +64,9 @@ export interface GamePlayRow {
   ended_early: boolean;
   accuracy: number | null;
   reaction_ms: number | null;
+  /** 달리기에서 부딪힌 횟수·주운 코인 (SQL 013) */
+  crashes: number | null;
+  coins: number | null;
 }
 
 /**
@@ -88,6 +91,10 @@ export function checkPlayRow(row: unknown, now: Date = new Date()): GamePlayRow 
   const rt = r.reaction_ms === null || r.reaction_ms === undefined ? null : Number(r.reaction_ms);
   if (acc !== null && (!Number.isFinite(acc) || acc < 0 || acc > 100)) return null;
   if (rt !== null && (!Number.isInteger(rt) || rt < 0 || rt > 10_000)) return null;
+  const crashes = r.crashes === null || r.crashes === undefined ? null : Number(r.crashes);
+  const coins = r.coins === null || r.coins === undefined ? null : Number(r.coins);
+  if (crashes !== null && (!Number.isInteger(crashes) || crashes < 0 || crashes > 500)) return null;
+  if (coins !== null && (!Number.isInteger(coins) || coins < 0 || coins > 1000)) return null;
   return {
     session_start: start.toISOString(),
     session_end: end.toISOString(),
@@ -96,6 +103,8 @@ export function checkPlayRow(row: unknown, now: Date = new Date()): GamePlayRow 
     ended_early: Boolean(r.ended_early),
     accuracy: acc === null ? null : Math.round(acc),
     reaction_ms: rt,
+    crashes,
+    coins,
   };
 }
 

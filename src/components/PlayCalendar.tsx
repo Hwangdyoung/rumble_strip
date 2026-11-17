@@ -115,6 +115,8 @@ export function PlayCalendar({ patient, logs, actions, alerts }: Props) {
               <li>플레이 시간 <strong>{selectedDay.minutes}분</strong> ({selectedDay.sessions}회)</li>
               <li>완료 과제 <strong>{selectedDay.tasks}개</strong></li>
               <li>중도 종료 <strong>{selectedDay.endedEarly ? "있음" : "없음"}</strong></li>
+              {selectedDay.crashes != null && <li>게임 부딪힘 <strong>{selectedDay.crashes}번</strong></li>}
+              {selectedDay.coins != null && <li>게임 코인 <strong>{selectedDay.coins}개</strong></li>}
             </ul>
           ) : (
             <p className="text-sm text-muted-foreground">{selectedDay.isFuture ? "아직 오지 않은 날짜입니다." : "접속 기록이 없습니다."}</p>

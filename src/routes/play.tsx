@@ -343,7 +343,7 @@ function Game({ session, progress, onSaved }: { session: Session; progress: Game
   const [save, setSave] = useState<SaveState>("none");
   const [saveError, setSaveError] = useState<string | null>(null);
   const saveRow = useCallback(
-    async (row: PlayLogInsert) => {
+    async (row: PlayLogInsert & { crashes: number; coins: number }) => {
       setSave("saving");
       setSaveError(null);
       try {
@@ -359,9 +359,9 @@ function Game({ session, progress, onSaved }: { session: Session; progress: Game
     [session.token, onSaved],
   );
   const onPlayed = useCallback(
-    (row: PlayLogInsert | null, earned: number) => {
+    (row: PlayLogInsert | null, earned: number, drive: DriveStats) => {
       setVillage((v) => ({ ...v, coins: v.coins + earned }));
-      if (row) void saveRow(row);
+      if (row) void saveRow({ ...row, crashes: drive.crashes, coins: drive.roadCoins });
       else setSave("none");
     },
     [saveRow],
@@ -426,7 +426,7 @@ function Game({ session, progress, onSaved }: { session: Session; progress: Game
       });
       const drive = { crashes: d.current.crashes, roadCoins: d.current.roadCoins };
       const earned = earnedCoins(drive.roadCoins, summary.hits);
-      onPlayed(row, earned);
+      onPlayed(row, earned, drive);
       setResult({ row, summary, drive, earned });
       setPhase("done");
     },
@@ -613,7 +613,7 @@ function Game({ session, progress, onSaved }: { session: Session; progress: Game
   }
 
   if (phase === "done" && result) {
-    return <Done result={result} save={save} saveError={saveError} onRetry={() => result.row && saveRow(result.row)} onAgain={start} onHome={() => setPhase("home")} />;
+    return <Done result={result} save={save} saveError={saveError} onRetry={() => result.row && saveRow({ ...result.row, crashes: result.drive.crashes, coins: result.drive.roadCoins })} onAgain={start} onHome={() => setPhase("home")} />;
   }
 
   // 플레이 · 일시정지 · 그만두기 확인

@@ -332,6 +332,13 @@ function PatientDetailContent({
             value={risk.metrics.recentAvgMinutes == null ? "—" : `${Math.round(risk.metrics.recentAvgMinutes)}분`}
             hint={`목표 ${patient.session_target_minutes}분`}
           />
+          {risk.metrics.recentCrashes != null && (
+            <Stat
+              label="게임 부딪힘"
+              value={`판당 ${risk.metrics.recentCrashes.toFixed(1)}회`}
+              hint={risk.metrics.crashRise >= 0.1 ? `처음 대비 +${risk.metrics.crashRise.toFixed(1)}회` : "최근 평균"}
+            />
+          )}
         </div>
               </Card>
               <Card title="위험 이유">

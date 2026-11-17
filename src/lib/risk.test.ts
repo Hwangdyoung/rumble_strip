@@ -62,7 +62,7 @@ describe("점수식과 원인", () => {
     const early = [0, 1, 2, 3, 4, 7, 8, 9, 10].map((d) => log(d, 30, 90));
     const late = [11, 14, 15, 16, 18].map((d) => log(d, 15, 78));
     const r = computeRisk(patient, [...early, ...late], asOf);
-    expect(r.breakdown.map((b) => b.points)).toEqual([28, 8, 18, 10]);
+    expect(r.breakdown.map((b) => b.points)).toEqual([28, 8, 18, 10, 0]); // 마지막 = 부딪힘 증가(게임 기록 없음)
     expect(r.rawScore).toBe(64);
     expect(r.score).toBe(64);
     expect(r.level).toBe("이탈 위험");
@@ -141,3 +141,41 @@ describe("점수 구성", () => {
     for (const e of summaryEvidence(r)) expect(summary).toContain(e.phrase);
   });
 });
+
+describe("게임 부딪힘·코인 (2026-11-17)", () => {
+  const patient = { prescription_start_date: "2026-11-01", prescription_weeks: 4, weekly_target_days: 5, session_target_minutes: 30 };
+  const asOf = new Date(2026, 10, 10, 23);
+  const game = (day: number, crashes: number, coins = 10) => ({
+    session_start: new Date(2026, 10, day, 17).toISOString(),
+    play_minutes: 30,
+    accuracy: 80,
+    reaction_ms: 600,
+    crashes,
+    coins,
+  });
+  it("처음 5판보다 최근 5판 평균 부딪힘이 2회 늘면 10점", () => {
+    const logs = [1, 2, 3, 4, 5].map((d) => game(d, 1)).concat([6, 7, 8, 9, 10].map((d) => game(d, 3)));
+    const r = computeRisk(patient, logs, asOf);
+    const item = r.breakdown.find((b) => b.key === "crashes")!;
+    expect(item.points).toBe(10);
+    expect(r.metrics.crashRise).toBe(2);
+    expect(r.reasons.some((t) => t.includes("부딪힘 2.0회"))).toBe(true);
+  });
+  it("아무리 늘어도 최대 20점", () => {
+    const logs = [1, 2, 3, 4, 5].map((d) => game(d, 0)).concat([6, 7, 8, 9, 10].map((d) => game(d, 30)));
+    expect(computeRisk(patient, logs, asOf).breakdown.find((b) => b.key === "crashes")!.points).toBe(20);
+  });
+  it("줄었거나 기록이 4판 미만이면 0점", () => {
+    const fewer = [1, 2, 3, 4, 5].map((d) => game(d, 4)).concat([6, 7, 8, 9, 10].map((d) => game(d, 1)));
+    expect(computeRisk(patient, fewer, asOf).breakdown.find((b) => b.key === "crashes")!.points).toBe(0);
+    expect(computeRisk(patient, [game(1, 0), game(2, 0), game(3, 9)], asOf).breakdown.find((b) => b.key === "crashes")!.points).toBe(0);
+  });
+  it("코인은 줄어도 점수에 넣지 않고 이유에만 표시", () => {
+    const logs = [1, 2, 3, 4, 5].map((d) => game(d, 1, 20)).concat([6, 7, 8, 9, 10].map((d) => game(d, 1, 10)));
+    const r = computeRisk(patient, logs, asOf);
+    expect(r.breakdown.find((b) => b.key === "crashes")!.points).toBe(0);
+    expect(r.metrics.coinChange).toBeCloseTo(-0.5);
+    expect(r.reasons.some((t) => t.includes("코인 50% 감소"))).toBe(true);
+  });
+});
+

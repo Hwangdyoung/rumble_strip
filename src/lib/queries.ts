@@ -14,7 +14,7 @@ export const patientsOverviewQuery = () =>
     queryFn: async () => {
       const [{ data: patients, error: e1 }, { data: logs, error: e2 }] = await Promise.all([
         supabase.from("patients").select("*").order("name"),
-        supabase.from("play_logs").select("patient_id, session_start, play_minutes, accuracy, reaction_ms"),
+        supabase.from("play_logs").select("*"), // crashes·coins(SQL 013)가 없는 DB에서도 에러 없게 "*"
       ]);
       if (e1) throw e1;
       if (e2) throw e2;

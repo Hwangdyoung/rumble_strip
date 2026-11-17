@@ -369,7 +369,7 @@ function InfoSection() {
           <li>정상 {b["정상"][0]}–{b["정상"][1]}점 · 주의 {b["주의"][0]}–{b["주의"][1]}점 · 이탈 위험 {b["이탈 위험"][0]}–{b["이탈 위험"][1]}점</li>
           <li>치료이탈: 처방 기간 중 {RISK_CONFIG.dropoutGapDays}일 이상 연속 미접속 ({b["치료이탈"][0]}–{b["치료이탈"][1]}점으로 표시)</li>
           <li>
-            점수 = 연속 미접속일 × {f.gapPerDay} + 회차 지연 × {f.behindPerSession} + 정확도 하락(%p) × {f.accuracyPerPp} + 짧은 세션 {f.shortSessionBonus}
+            점수 = 연속 미접속일 × {f.gapPerDay} + 회차 지연 × {f.behindPerSession} + 정확도 하락(%p) × {f.accuracyPerPp} + 짧은 세션 {f.shortSessionBonus} + 게임 부딪힘 증가(판당 회) × {f.crashPerHit}(최대 {f.crashMaxPoints})
           </li>
           <li>매일 한국 시간 오전 9시대에 자동 점검해, 상태가 새로 나빠진 환자에게 알림을 만듭니다.</li>
         </ul>

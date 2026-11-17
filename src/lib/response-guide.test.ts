@@ -4,7 +4,7 @@ import { buildGuide, UNREACHABLE_STEPS, type GuideInput } from "./response-guide
 const metrics = {
   elapsedDays: 20, recentDays: 2, currentGap: 4, maxGap: 4, adherence: 0.64, sessionChange: 0, weeklyDeclineStreak: 0,
   lastPlayDate: "2026-01-16", sessionsDone: 12, sessionsExpected: 14, sessionsBehind: 2, accuracyDrop: 0,
-  recentAccuracy: 80, recentAvgMinutes: 28, shortSession: false, reactionChange: null,
+  recentAccuracy: 80, recentAvgMinutes: 28, shortSession: false, reactionChange: null, crashRise: 0, recentCrashes: null, coinChange: null,
 };
 const base: GuideInput = {
   risk: { level: "이탈 위험", cause: "단순 미접속", metrics },

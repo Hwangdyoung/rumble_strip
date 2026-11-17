@@ -38,7 +38,12 @@ describe("checkPlayRow", () => {
     reaction_ms: 640,
   };
   it("정상 기록은 정리해서 돌려준다", () => {
-    expect(checkPlayRow(ok, now)).toEqual({ ...ok, accuracy: 86, session_start: "2026-11-17T08:58:00.000Z", session_end: "2026-11-17T08:59:30.000Z" });
+    expect(checkPlayRow(ok, now)).toEqual({ ...ok, accuracy: 86, crashes: null, coins: null, session_start: "2026-11-17T08:58:00.000Z", session_end: "2026-11-17T08:59:30.000Z" });
+  });
+  it("부딪힘·코인은 0 이상 정수만 받는다", () => {
+    expect(checkPlayRow({ ...ok, crashes: 6, coins: 17 }, now)).toMatchObject({ crashes: 6, coins: 17 });
+    expect(checkPlayRow({ ...ok, crashes: -1 }, now)).toBeNull();
+    expect(checkPlayRow({ ...ok, coins: 2.5 }, now)).toBeNull();
   });
   it("미래 시각·너무 오래전·끝이 시작보다 앞·범위 밖 값은 거절", () => {
     expect(checkPlayRow({ ...ok, session_end: "2026-11-17T09:05:00Z" }, now)).toBeNull();

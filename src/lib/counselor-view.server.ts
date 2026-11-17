@@ -45,7 +45,7 @@ export const fetchCounselorBoard = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [logs, al, fu, ac, ps] = await Promise.all([
-      supabaseAdmin.from("play_logs").select("patient_id, session_start, play_minutes, accuracy, reaction_ms").in("patient_id", ids),
+      supabaseAdmin.from("play_logs").select("*").in("patient_id", ids),
       supabaseAdmin.from("alerts").select(ALERT_COLS).in("patient_id", ids),
       db.from("follow_ups").select("patient_id, due_date").is("done_at", null),
       db.from("actions").select("patient_id, created_at").order("created_at", { ascending: false }),
@@ -116,7 +116,7 @@ export const fetchCounselorPatient = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [logs, al, ac, fu] = await Promise.all([
-      supabaseAdmin.from("play_logs").select("patient_id, session_start, play_minutes, accuracy, reaction_ms").eq("patient_id", p.id).order("session_start"),
+      supabaseAdmin.from("play_logs").select("*").eq("patient_id", p.id).order("session_start"),
       supabaseAdmin.from("alerts").select(ALERT_COLS).eq("patient_id", p.id).order("created_at", { ascending: false }),
       db.from("actions").select("id, action_type, memo, created_at, staff_id").eq("patient_id", p.id).order("created_at", { ascending: false }),
       db.from("follow_ups").select("id, due_date, assignee_id, note").eq("patient_id", p.id).is("done_at", null).order("due_date"),
