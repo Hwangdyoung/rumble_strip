@@ -324,6 +324,36 @@ begin
       res := res || format('30~35. 둘러보기 시험 실패: %s (코드 %s, 011을 실행했는지 확인)', sqlerrm, sqlstate) || E'\n';
     end;
 
+    -- 36~38) 게임 환자 (SQL 012). 시험용 게임 환자를 만들고 권한과 되돌리기를 본다(끝에서 모두 되돌아감).
+    begin
+      execute 'reset role';
+      insert into public.patients (id, name, age, prescription_start_date, source)
+      values (fake, '시험게임환자', 9, (now() at time zone 'Asia/Seoul')::date, 'game');
+      insert into public.game_accounts (patient_id, login_id, pin_hash) values (fake, 'rls-test-' || substr(fake::text, 1, 8), 'x');
+      insert into public.patient_staff (patient_id, staff_id, is_contact) values (fake, admin_id, true);
+      execute 'set local role authenticated';
+      begin
+        select count(*) into n from public.game_accounts;
+        res := res || '36. 관리자가 화면에서 게임 계정 읽기: 막히지 않음 (문제)' || E'\n';
+      exception when others then
+        res := res || format('36. 관리자가 화면에서 게임 계정 읽기: 막힘 (기대대로, 코드 %s)', sqlstate) || E'\n';
+      end;
+      select count(*) into n from public.patients where source = 'game' and id = fake;
+      res := res || format('37. 관리자에게 게임 환자 보임: %s명 (기대: 1)', n) || E'\n';
+      perform public.save_demo_baseline();
+      execute 'reset role';
+      delete from public.patient_staff where patient_id = fake;
+      insert into public.patient_staff (patient_id, staff_id, is_contact) values (fake, admin_id, false);
+      execute 'set local role authenticated';
+      perform public.reset_demo_data();
+      execute 'reset role';
+      select count(*) into n from public.patient_staff where patient_id = fake and is_contact = false;
+      execute 'set local role authenticated';
+      res := res || format('38. 되돌리기 뒤 게임 환자의 담당 연결 그대로: %s건 (기대: 1)', n) || E'\n';
+    exception when others then
+      res := res || format('36~38. 게임 환자 시험 실패: %s (코드 %s, 012를 실행했는지 확인)', sqlerrm, sqlstate) || E'\n';
+    end;
+
     -- 여기까지의 변경을 모두 되돌리기 위해 일부러 예외를 낸다 (결과 문장을 함께 실어 보냄)
     raise exception 'RESULT:%', res;
   exception when others then

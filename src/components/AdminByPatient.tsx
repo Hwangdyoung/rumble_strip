@@ -100,6 +100,9 @@ export function AdminByPatient({
                 </td>
                 <th scope="row" className="whitespace-nowrap py-3 pr-3 text-left font-medium">
                   {p.name} <span className="font-normal text-muted-foreground">{p.age}세</span>
+                  {p.source === "game" && (
+                    <span className="ml-1.5 rounded-full bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-foreground" title="환자용 게임에서 만든 환자">게임</span>
+                  )}
                 </th>
                 <td className="py-2.5 pr-3">
                   <PatientStaffLines

@@ -55,6 +55,10 @@ AI는 진단·처방을 바꾸지 않는 참고용 보조 도구다. 모든 UI �
 - 2026-11-13: '로그인 없이 둘러보기'(전시회에서 방문자가 앱을 써 보는 용도, SQL 011, 아래 '로그인 없이 둘러보기' 절). `main` 반영(d5ecb0b).
   SQL 011은 처음에 42P13(같은 이름 함수가 이미 있음)으로 실패해 drop을 넣고(6b73191) 다시 실행, 함수 생성 확인.
   사용자 요청으로 큰 칸 대신 로그인 화면 오른쪽 위 모서리 버튼 + 역할 고르는 창으로 바꿈.
+- 2026-11-17: 환자용 게임(/play, SQL 012, 아래 '환자용 게임' 절). 조원이 만든 게임(`../../../AI-DB-PROJECT-main/rumble_strip-play`)을 가져와
+  아이디·저장 방식으로 바꿈. 커밋까지, SQL 012 실행·push·배포 확인 전.
+  주의: 조원 폴더의 `.env`도 우리 Supabase(ymaukxrtizuinckuluri)를 가리킨다. 그 폴더의 SQL(`0002_demo_personas.sql`, `0002_patient_accounts.sql`:
+  체험 환자 지우고 다시 넣기, anon에게 patients·play_logs 권한 열기)은 2026-11-17 확인 때 우리 DB에 적용돼 있지 않았다. 우리 DB에서 실행하지 않도록 조원에게 알릴 것.
 - 2026-11-12: 5차 페르소나 평가(업무량·역할별 접근·담당 관리 탭·가입 막기 반영). 점수 규칙을 바꿨다:
   해결 +1, 이번 변경으로 4차보다 나빠진 점(새 불편)이 있으면 -1(1~5점), 과제 판단 3개(성공/어려움/실패)를 따로 본다.
   비교용으로 4차 규칙 점수(`s5_old`)도 함께 계산한다. 결과: 새 규칙 3.90→3.87(4점 이상 39명), 4차 규칙이면 3.90 그대로.
@@ -75,7 +79,7 @@ npm run build
 npm run lint    # eslint
 npm run format  # prettier
 ```
-- 테스트 파일: `src/lib/risk.test.ts`, `src/lib/calendar.test.ts`, `src/lib/alert-outcome.test.ts`,
+- 테스트 파일(일부): `src/lib/risk.test.ts`, `src/lib/game.test.ts`·`drive.test.ts`·`village.test.ts`(조원), `src/lib/game-account.test.ts`, `src/lib/calendar.test.ts`, `src/lib/alert-outcome.test.ts`,
   `src/lib/daily-check.test.ts`, `src/test/app-routing.test.tsx`.
 - `npm run lint`는 기존 파일들의 prettier 형식 문제로 에러가 많이 나온다(형식만의 문제, 동작과 무관).
   변경을 확인할 때는 `npm run test`, `npm run build`, `npx tsc --noEmit -p .`를 쓴다.
@@ -170,10 +174,11 @@ npm run format  # prettier
   - `staff`(의료진: id=auth.users.id, name, role '의사'|'간호사'|'상담원', is_admin), `patient_staff`(환자-담당자, 여러 명) (2026-11-12)
   - `staff_invites`(처음 설정 코드: staff_id, login_id, code_hash, expires_at, used_at, attempts, created_by) (2026-11-12, 010)
   - `staff.is_demo`(둘러보기 계정), `demo_baseline`(시연 기준 한 줄, data jsonb) (2026-11-13, 011)
+  - `patients.source`('staff'|'game'), `game_accounts`(게임 환자 아이디·숫자 4자리 해시·틀린 횟수·접속 표시 해시, 화면 접근 불가) (2026-11-17, 012)
   - `alerts`: `assignee_id`(→ staff), `assigned_at`, `resolved_at` / `patient_staff`: `is_contact`(환자당 1명, 관리자만 변경) (2026-11-12)
   - `alert_handoffs`(넘긴 기록, 007부터 alert_id 비어 있을 수 있음), `follow_ups`(다음 연락 일정) (2026-11-12, 006·007)
 - 손으로 실행한 SQL은 `supabase/manual-sql/`에 번호 순서로 둔다(001 알림 결과, 002 매일 점검, 003 담당 환자 RLS와
-  되돌리기·시험 SQL, 004 관리자 아이디, 005 알림 담당자, 006 넘기기·다음 연락, 007 환자 단위 맡기·넘기기, 008 담당자별 업무량, 009 역할별 접근, 010 처음 설정 코드, 011 로그인 없이 둘러보기). DB를 새로 만들 때 마이그레이션 다음에 이 순서대로 실행한다.
+  되돌리기·시험 SQL, 004 관리자 아이디, 005 알림 담당자, 006 넘기기·다음 연락, 007 환자 단위 맡기·넘기기, 008 담당자별 업무량, 009 역할별 접근, 010 처음 설정 코드, 011 로그인 없이 둘러보기, 012 환자용 게임). DB를 새로 만들 때 마이그레이션 다음에 이 순서대로 실행한다.
 - RLS(003 이후): 관리자(`is_admin()`)는 전체, 그 외에는 `patient_staff`로 연결된 환자만(`can_see_patient()`).
   - patients·play_logs: 읽기는 관리자·담당자, 쓰기는 관리자만
   - risk_scores·alerts: 담당자도 추가(대시보드 매일 점검)·알림 상태와 결과 기록 가능, 삭제는 관리자
@@ -344,4 +349,24 @@ npm run format  # prettier
   만들고 '둘러보기' 켜고 환자 배정 → 설정 → 데이터 '시연 기준으로 저장'.
 - 남은 걱정(추정): 새 플레이 기록이 들어오지 않아 날짜가 지날수록 가상 환자가 대부분 '치료이탈'로 보일 수 있다. 전시회 날짜에 맞춘 예시 데이터 갱신은 따로.
   둘러보기 로그인 주소는 누구나 부를 수 있다(횟수 제한 없음). 전시회가 끝나면 `DEMO_MODE`를 지울 것.
+
+## 환자용 게임 (2026-11-17, SQL 012)
+- 조원이 만든 '스타러커스 체험 게임'(달리기 3차선 피하기 + 기억 그림 1-back + 마을 꾸미기)을 가져왔다. 게임 규칙 파일은 그대로:
+  `src/lib/game.ts`·`drive.ts`·`village.ts`(+테스트), `src/components/DriveScene.tsx`·`GameSymbol.tsx`·`Village.tsx`(파일 첫 줄에 출처).
+  `src/routes/play.tsx`는 조원 것을 바탕으로 체험 환자 고르기 → 아이디 방식·DB 저장으로 바꿨다.
+- 들어가기: 로그인 화면 왼쪽 위 '게임 해 보기'(`GameEntry.tsx`) → `/play`(로그인 없이). 오른쪽 위 '로그인 없이 둘러보기'와 짝.
+  둘 다 `DEMO_MODE=on`일 때만 보이고 동작한다. 모바일에서는 오른쪽 버튼 글자가 '둘러보기'로 짧아진다.
+- `/play` 첫 화면: '처음이에요'(별명 1~12자·나이 6~12세·아이디 영문 소문자+숫자 3~20자·숫자 4자리) / '이어서 할게요'(아이디+숫자 4자리, 5번 틀리면 잠김).
+  실명 대신 별명, 그 밖의 개인정보는 받지 않는다(사용자 결정). 접속 표시는 브라우저 localStorage에 12시간.
+- 서버 함수 `src/lib/game-account.server.ts`(service role, anon 권한은 열지 않음): `getGameStatus`, `createGamePatient`(patients source='game',
+  처방 시작=오늘 한국 날짜, 하루 300명 상한), `gameSignIn`, `getGameProgress`(처방 진행용 플레이 기록), `saveGamePlay`(접속 표시로 환자를 정하고
+  화면이 보낸 환자 id는 무시, `checkPlayRow`로 범위 확인: 1~60분, 3시간 안, 미래 아님 등), `gameSignOut`. 입력 확인·해시는 `src/lib/game-account.ts`(테스트 있음).
+- 결과 화면: 이번 판(플레이 분·맞힌 기억 그림·코인·반응 속도)과 '오늘 기록을 저장했어요'. 위험 점수·단계는 환자에게 안 보여 준다. 저장 실패 시 '다시 저장'.
+- 마을·코인은 기기에만 저장(localStorage, 아이디별). DB 칸 없음.
+- 의료진 쪽: 게임 환자는 담당이 없어 관리자에게만 보이고 '담당 미배정'(사용자 결정). 담당 관리 환자별 탭에 '게임' 표시. 위험 점수·매일 점검은 다른 환자와 같다.
+- 둘러보기 되돌리기(`reset_demo_data`, 012에서 다시 정의)는 게임 환자(source='game')를 건드리지 않는다(사용자 결정: 남김). 게임 환자 정리는 필요하면 따로.
+- 권한 시험: `003_staff_rls_test.sql` 36~38번(관리자도 화면에서 게임 계정 못 읽음, 관리자에게 게임 환자 보임, 되돌리기 뒤 게임 환자 담당 연결 유지).
+- 로컬 확인: `.claude/launch.json`의 `dev-game`(DEMO_MODE=on, 포트 8090)으로 로그인 화면 왼쪽 위 버튼과 `/play` 첫 화면이 뜨는 것만 확인.
+  환자 만들기·저장은 service role 키가 없어 로컬에서 안 된다. 배포 사이트에서 확인 필요.
+- 준비 순서: SQL 012 실행 → 시험 SQL 36~38 → push → 배포 사이트에서 '게임 해 보기' → 환자 만들기 → 한 판 → 관리자로 대시보드에서 그 환자·기록 확인.
 

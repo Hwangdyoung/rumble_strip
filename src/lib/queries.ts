@@ -178,12 +178,14 @@ export const assignmentsQuery = () =>
     queryKey: ["assignments"],
     queryFn: async () => {
       const [p, ps] = await Promise.all([
-        supabase.from("patients").select("id, name, age").order("name"),
+        // select("*"): source 열(SQL 012)이 없는 DB에서도 에러 없이 읽히게
+        supabase.from("patients").select("*").order("name"),
         supabase.from("patient_staff").select("patient_id, staff_id, is_contact"),
       ]);
       if (p.error) throw p.error;
       if (ps.error) throw ps.error;
-      return { patients: p.data ?? [], links: ps.data ?? [] };
+      const patients = (p.data ?? []).map((r) => ({ id: r.id, name: r.name, age: r.age, source: r.source ?? "staff" }));
+      return { patients, links: ps.data ?? [] };
     },
   });
 

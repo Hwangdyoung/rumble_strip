@@ -8,6 +8,7 @@ import { Logo } from "@/components/AppHeader";
 import { Disclaimer } from "@/components/Disclaimer";
 import { loginIdToEmail } from "@/lib/login-id";
 import { DemoEntry } from "@/components/DemoEntry";
+import { GameEntry } from "@/components/GameEntry";
 
 /**
  * 로그인 화면. 회원가입은 받지 않는다(Supabase에서 가입을 끄고, 관리자가 '담당 관리 → 의료진별'에서 계정을 만든다).
@@ -56,6 +57,7 @@ function AuthPage() {
         <div className="mb-6 flex justify-center">
           <Logo />
         </div>
+        <GameEntry />
         <DemoEntry />
         <div className="rounded-2xl border bg-card p-6 shadow-card sm:p-8">
           <h1 className="text-2xl font-bold">의료진 로그인</h1>

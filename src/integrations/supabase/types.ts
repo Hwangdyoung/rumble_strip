@@ -297,6 +297,8 @@ export type Database = {
           prescription_start_date: string
           prescription_weeks: number
           session_target_minutes: number
+          /** SQL 012: 'staff'(기존) | 'game'(게임에서 만든 환자) */
+          source: string
           weekly_target_days: number
         }
         Insert: {
@@ -307,6 +309,7 @@ export type Database = {
           prescription_start_date: string
           prescription_weeks?: number
           session_target_minutes?: number
+          source?: string
           weekly_target_days?: number
         }
         Update: {
@@ -317,6 +320,7 @@ export type Database = {
           prescription_start_date?: string
           prescription_weeks?: number
           session_target_minutes?: number
+          source?: string
           weekly_target_days?: number
         }
         Relationships: []
@@ -431,6 +435,37 @@ export type Database = {
           is_demo?: boolean
           name?: string
           role?: string
+        }
+        Relationships: []
+      }
+      // SQL 012. 게임 환자 계정. 화면(anon·authenticated)은 접근 불가, 서버 함수(service role)만 쓴다.
+      game_accounts: {
+        Row: {
+          attempts: number
+          created_at: string
+          login_id: string
+          patient_id: string
+          pin_hash: string
+          session_expires_at: string | null
+          session_hash: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          login_id: string
+          patient_id: string
+          pin_hash: string
+          session_expires_at?: string | null
+          session_hash?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          login_id?: string
+          patient_id?: string
+          pin_hash?: string
+          session_expires_at?: string | null
+          session_hash?: string | null
         }
         Relationships: []
       }

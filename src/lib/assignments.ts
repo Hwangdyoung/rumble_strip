@@ -14,6 +14,8 @@ export interface PatientItem {
   id: string;
   name: string;
   age: number;
+  /** 'game' = 환자용 게임에서 만든 환자 (SQL 012) */
+  source?: string;
 }
 export interface LinkItem {
   patient_id: string;
