@@ -167,7 +167,7 @@ npm run format  # prettier
 - 테이블: patients, play_logs, risk_scores, alerts, actions. 원래 스키마는 `drizzle/migrations/*.sql`.
   타입은 `src/integrations/supabase/types.ts`.
 - 마이그레이션 파일에는 없지만 사용자 Supabase에는 추가돼 있는 것(SQL Editor로 직접 실행):
-  - `play_logs`: `accuracy`(numeric), `reaction_ms`(integer)
+  - `play_logs`: `accuracy`(실제로는 integer, 2026-11-17 게임 저장 때 22P02로 확인. 소수는 반올림해서 넣는다), `reaction_ms`(integer)
   - `alerts`: `outcome`('미정'|'회복'|'이탈'|'연락 불가', 기본 '미정'), `outcome_at`, `outcome_note`,
     `alert_score`, `alert_level` (2026-11-11)
   - `risk_scores`: `source`('record'|'daily', 기본 'record'), `check_date`(date),

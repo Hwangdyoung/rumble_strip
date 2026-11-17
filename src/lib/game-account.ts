@@ -69,6 +69,7 @@ export interface GamePlayRow {
 /**
  * 저장 전 플레이 기록 확인. 시각은 지금 기준 3시간 안, 끝 ≥ 시작, 미래 아님(1분 여유).
  * 플레이 1~60분, 과제 0~10개, 정확도 0~100, 반응 시간 0~10초. 맞으면 정리된 값, 아니면 null.
+ * 정확도는 정수로 반올림한다: 사용자 Supabase의 play_logs.accuracy 칸이 integer라 68.4 같은 값은 거절된다(2026-11-17 22P02로 확인).
  */
 export function checkPlayRow(row: unknown, now: Date = new Date()): GamePlayRow | null {
   if (!row || typeof row !== "object") return null;
@@ -93,7 +94,7 @@ export function checkPlayRow(row: unknown, now: Date = new Date()): GamePlayRow 
     play_minutes: minutes,
     tasks_completed: tasks,
     ended_early: Boolean(r.ended_early),
-    accuracy: acc,
+    accuracy: acc === null ? null : Math.round(acc),
     reaction_ms: rt,
   };
 }
