@@ -1,14 +1,15 @@
-import { LevelBadge } from "@/components/LevelBadge";
+import { LevelBadge, levelStyles } from "@/components/LevelBadge";
 import type { ContactRow, ContactStatus } from "@/lib/contact-list";
 import { cn } from "@/lib/utils";
 
+/** 상태는 색 배지 대신 글자 굵기·색으로만 구분한다 (한 줄에 색 이름표가 몰리지 않게). 손이 가야 하는 상태만 진하게. */
 const STATUS_STYLE: Record<ContactStatus, string> = {
-  "다시 연락": "bg-level-caution-soft text-level-caution-ink",
-  "연락 전": "bg-level-caution-soft text-level-caution-ink",
-  "연락 불가": "bg-level-risk-soft text-level-risk",
-  "연락 예정": "bg-secondary text-secondary-foreground",
-  연락함: "bg-level-normal-soft text-level-normal",
-  "경과 관찰": "bg-muted text-muted-foreground",
+  "다시 연락": "font-semibold text-foreground",
+  "연락 전": "font-semibold text-foreground",
+  "연락 불가": "font-semibold text-level-risk",
+  "연락 예정": "text-muted-foreground",
+  연락함: "text-level-normal",
+  "경과 관찰": "text-muted-foreground",
 };
 
 const md = (key: string) => `${Number(key.slice(5, 7))}/${Number(key.slice(8, 10))}`;
@@ -60,19 +61,27 @@ export function ContactList({
             onClick={() => onSelect(r.patientId)}
             aria-current={selectedId === r.patientId ? "true" : undefined}
             className={cn(
-              "grid w-full min-w-0 items-center gap-x-4 gap-y-1.5 px-5 py-3.5 text-left transition hover:bg-muted",
+              "relative grid w-full min-w-0 items-center gap-x-4 gap-y-1.5 py-3.5 pl-6 pr-5 text-left transition-colors hover:bg-muted",
               compact ? "grid-cols-[minmax(0,1fr)_auto]" : "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]",
-              selectedId === r.patientId && "bg-secondary ring-2 ring-inset ring-primary",
+              selectedId === r.patientId && "bg-secondary hover:bg-secondary",
               !r.needsAction && "opacity-70",
             )}
           >
+            {/* 방지턱 띠: 단계가 급할수록 진한 색. 고른 줄은 띠 대신 진한 파란 막대 */}
+            <span
+              aria-hidden
+              className={cn(
+                "absolute inset-y-2.5 left-2.5 w-1 rounded-full",
+                selectedId === r.patientId ? "bg-primary" : cn("rumble-strip", levelStyles[r.level].strip),
+              )}
+            />
             <span className="min-w-0">
               <span className="flex flex-wrap items-center gap-1.5">
                 <span className="font-semibold">{r.name}</span>
-                {r.newWorseAt && <span className="rounded-full bg-level-risk-soft px-2 py-0.5 text-xs font-semibold text-level-risk">새로 나빠짐</span>}
+                {r.newWorseAt && <span className="rounded-full border border-level-risk/40 px-2 py-px text-[0.8rem] font-semibold text-level-risk">새로 나빠짐</span>}
                 {r.followDue && (
-                  <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-foreground">
-                    {r.followDue.overdueDays > 0 ? `다시 연락 ${r.followDue.overdueDays}일 지남` : "오늘 다시 연락"}
+                  <span className="text-[0.8rem] font-medium text-muted-foreground">
+                    · {r.followDue.overdueDays > 0 ? `다시 연락 ${r.followDue.overdueDays}일 지남` : "오늘 다시 연락"}
                   </span>
                 )}
               </span>
@@ -81,19 +90,19 @@ export function ContactList({
             {compact ? (
               <span className="flex flex-col items-end gap-1">
                 <LevelBadge level={r.level} />
-                <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", STATUS_STYLE[r.status])}>{statusLabel(r)}</span>
+                <span className={cn("text-sm", STATUS_STYLE[r.status])}>{statusLabel(r)}</span>
               </span>
             ) : (
               <>
                 <span className="justify-self-end md:justify-self-start">
                   <LevelBadge level={r.level} />
-                  {r.score !== null && <span className="ml-1.5 text-sm tabular-nums text-muted-foreground">{r.score}</span>}
+                  {r.score !== null && <span className="ml-2 text-sm font-medium tabular-nums text-muted-foreground">{r.score}점</span>}
                 </span>
                 <span className="col-span-2 flex items-center gap-2 md:col-span-1">
-                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", STATUS_STYLE[r.status])}>{statusLabel(r)}</span>
-                  <span className={cn("text-sm md:hidden", !r.contactId && "font-medium text-level-risk")}>· {nameOf(r.contactId)}</span>
+                  <span className={cn("text-sm", STATUS_STYLE[r.status])}>{statusLabel(r)}</span>
+                  <span className={cn("text-sm md:hidden", r.contactId ? "text-muted-foreground" : "text-level-caution-ink")}>· 담당 {nameOf(r.contactId)}</span>
                 </span>
-                <span className={cn("hidden text-sm md:block", !r.contactId && "font-medium text-level-risk")}>{nameOf(r.contactId)}</span>
+                <span className={cn("hidden text-sm md:block", !r.contactId && "text-level-caution-ink")}>{nameOf(r.contactId)}</span>
               </>
             )}
           </button>

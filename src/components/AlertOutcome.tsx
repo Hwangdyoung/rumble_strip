@@ -111,7 +111,7 @@ export function AlertOutcomeSummary({ embedded = false }: { embedded?: boolean }
   const { data, isPending, isError } = useQuery(alertOutcomesQuery());
   const stats = data ? outcomeStats(data) : null;
   return (
-    <section className={cn(!embedded && "rounded-2xl border bg-card p-5 shadow-card")} aria-label="알림 결과">
+    <section className={cn(!embedded && "rounded-xl border bg-card p-5")} aria-label="알림 결과">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         {!embedded && <h2 className="text-lg font-bold">알림 결과</h2>}
         <p className="text-sm text-muted-foreground">

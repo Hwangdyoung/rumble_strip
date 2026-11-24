@@ -1,11 +1,15 @@
 import { cn } from "@/lib/utils";
 import type { RiskCause, RiskLevel } from "@/lib/risk";
 
-export const levelStyles: Record<RiskLevel, { badge: string; dot: string; card: string }> = {
-  정상: { badge: "bg-level-normal-soft text-level-normal", dot: "bg-level-normal", card: "border-level-normal" },
-  주의: { badge: "bg-level-caution-soft text-level-caution-ink", dot: "bg-level-caution", card: "border-level-caution" },
-  "이탈 위험": { badge: "bg-level-risk-soft text-level-risk", dot: "bg-level-risk", card: "border-level-risk" },
-  치료이탈: { badge: "bg-level-dropout-soft text-level-dropout", dot: "bg-level-dropout", card: "border-level-dropout" },
+/**
+ * 단계 색. 급할수록 진하다: 치료이탈만 채운 배지(가장 눈에 띔), 나머지는 옅은 배경.
+ * strip: 목록 줄 왼쪽 '방지턱 띠' 색 (styles.css의 .rumble-strip이 currentColor로 끊어진 띠를 그림). 정상은 띠 없음.
+ */
+export const levelStyles: Record<RiskLevel, { badge: string; dot: string; card: string; strip: string }> = {
+  정상: { badge: "bg-level-normal-soft text-level-normal", dot: "bg-level-normal", card: "border-level-normal", strip: "text-transparent" },
+  주의: { badge: "bg-level-caution-soft text-level-caution-ink", dot: "bg-level-caution", card: "border-level-caution", strip: "text-level-caution" },
+  "이탈 위험": { badge: "bg-level-risk-soft text-level-risk", dot: "bg-level-risk", card: "border-level-risk", strip: "text-level-risk" },
+  치료이탈: { badge: "bg-level-dropout text-white dark:text-background", dot: "bg-current opacity-70", card: "border-level-dropout", strip: "text-level-dropout" },
 };
 
 export function LevelBadge({ level, className }: { level: RiskLevel; className?: string }) {
@@ -13,12 +17,12 @@ export function LevelBadge({ level, className }: { level: RiskLevel; className?:
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-sm font-semibold",
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-sm font-semibold",
         s.badge,
         className,
       )}
     >
-      <span className={cn("size-2 rounded-full", s.dot)} />
+      <span className={cn("size-1.5 rounded-full", s.dot)} />
       {level}
     </span>
   );

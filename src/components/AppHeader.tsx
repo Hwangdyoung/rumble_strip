@@ -13,12 +13,12 @@ import { canSeeClinical } from "@/lib/roles";
 export function Logo() {
   return (
     <span className="flex items-center gap-2.5">
-      <span className="grid size-9 place-items-center rounded-xl bg-brand text-primary-foreground">
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand text-primary-foreground">
         <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
           <path d="M3 17h4c2 0 3-7 5-7s3 7 5 7h4" />
         </svg>
       </span>
-      <span className="text-lg font-bold tracking-tight text-foreground">이탈방지턱</span>
+      <span className="whitespace-nowrap text-lg font-bold tracking-tight text-foreground max-[400px]:sr-only">이탈방지턱</span>
     </span>
   );
 }
@@ -43,13 +43,13 @@ export function AppHeader() {
         <Link to="/dashboard">
           <Logo />
         </Link>
-        <nav className="flex items-center gap-2 sm:gap-3">
-          <Link to="/dashboard" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>대시보드</Link>
+        <nav className="flex items-center gap-0.5 sm:gap-2">
+          <Link to="/dashboard" className="whitespace-nowrap rounded-md px-2 py-1.5 text-[0.95rem] font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>대시보드</Link>
           {canSeeClinical(me?.staff) && (
-            <Link to="/simulator" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>시뮬레이터</Link>
+            <Link to="/simulator" className="whitespace-nowrap rounded-md px-2 py-1.5 text-[0.95rem] font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>시뮬레이터</Link>
           )}
           {me?.staff?.is_admin && (
-            <Link to="/admin" className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>담당 관리</Link>
+            <Link to="/admin" className="whitespace-nowrap rounded-md px-2 py-1.5 text-[0.95rem] font-medium text-muted-foreground hover:text-foreground" activeProps={{ className: "text-primary" }}>담당 관리</Link>
           )}
           <AlertsBell />
           <ProfileMenu onSignOut={signOut} />

@@ -14,7 +14,7 @@ export function GameEntry() {
     <div className="fixed left-0 top-0 z-20 p-4 sm:p-6">
       <Link
         to="/play"
-        className="inline-flex h-10 items-center gap-2 rounded-full border bg-card px-4 text-sm font-medium shadow-card transition hover:bg-muted"
+        className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/30 bg-white/10 px-4 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20 dark:text-secondary-foreground"
       >
         <Gamepad2 className="size-4" aria-hidden /> 게임 해 보기
       </Link>

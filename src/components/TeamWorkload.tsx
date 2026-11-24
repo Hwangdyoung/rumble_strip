@@ -15,7 +15,7 @@ export function TeamWorkload({ myId }: { myId: string | null }) {
   const total = rows.reduce((n, r) => n + r.todo, 0);
 
   return (
-    <details className="group rounded-2xl border bg-card shadow-card">
+    <details className="group rounded-xl border bg-card">
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-4 py-2 [&::-webkit-details-marker]:hidden">
         <span className="font-semibold">
           팀 업무량 <span className="text-sm font-normal text-muted-foreground">· {rows.length}명 · 오늘 할 일 합계 {total}</span>

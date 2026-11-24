@@ -60,7 +60,7 @@ function ActivatePage() {
         <div className="mb-6 flex justify-center">
           <Logo />
         </div>
-        <div className="rounded-2xl border bg-card p-6 shadow-card sm:p-8">
+        <div className="rounded-xl border bg-card p-6 sm:p-8">
           <h1 className="text-2xl font-bold">계정 활성화</h1>
           <p className="mt-1 text-muted-foreground">관리자에게 받은 아이디와 초대 코드를 입력하고 비밀번호를 설정하세요.</p>
           <form onSubmit={onSubmit} className="mt-6 space-y-4">

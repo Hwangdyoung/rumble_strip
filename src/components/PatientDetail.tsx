@@ -15,7 +15,6 @@ import { ResponseGuide } from "@/components/ResponseGuide";
 import { ACTION_MEMO_TEMPLATE, buildGuide } from "@/lib/response-guide";
 import { defaultFollowUpDate } from "@/lib/follow-up";
 import { Input } from "@/components/ui/input";
-import { Sparkles } from "lucide-react";
 import { CauseBadge, LevelBadge } from "@/components/LevelBadge";
 import { PlayCalendar } from "@/components/PlayCalendar";
 import { PatientContact } from "@/components/PatientContact";
@@ -43,10 +42,11 @@ type TabId = (typeof TABS)[number]["id"];
 /** 다른 환자를 눌러도 보던 탭을 유지한다 (새로고침하면 처음 탭) */
 let lastTab: TabId = "guide";
 
+/** 탭 안의 한 묶음. 상세 화면 자체가 이미 한 면이라 상자를 또 두르지 않고, 제목과 윗선으로만 나눈다. */
 function Card({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <section className={cn("rounded-2xl border bg-card p-5 shadow-card", className)}>
-      <h2 className="mb-4 text-lg font-bold">{title}</h2>
+    <section className={cn("min-w-0 border-t pt-5", className)}>
+      <h2 className="mb-4 text-base font-bold">{title}</h2>
       {children}
     </section>
   );
@@ -176,13 +176,13 @@ function PatientDetailContent({
       </Link>}
 
       {/* 맨 위: 누구인지, 왜 연락해야 하는지, 누가 언제 연락하는지 */}
-      <div className="space-y-3 rounded-2xl border bg-card p-5 shadow-card">
+      <div className="space-y-4">
         <div className={cn("flex flex-col gap-4", !panel && "sm:flex-row sm:items-start sm:justify-between")}>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold sm:text-3xl">{patient.name}</h1>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-[1.75rem]">{patient.name}</h1>
               <LevelBadge level={risk.level} />
-              <span className="text-lg font-bold tabular-nums">{risk.score}<span className="text-sm font-normal text-muted-foreground">/100</span></span>
+              <span className="text-lg font-bold tabular-nums">{risk.score}<span className="text-sm font-normal text-muted-foreground">점</span></span>
             </div>
             <p className="mt-1 font-medium">{risk.reasons[0]}</p>
             <p className="mt-0.5 text-sm text-muted-foreground">
@@ -191,7 +191,7 @@ function PatientDetailContent({
             </p>
           </div>
           {risk.level === "정상" ? (
-            <span className="inline-flex h-12 shrink-0 items-center rounded-xl bg-level-normal-soft px-4 font-semibold text-level-normal">경과 관찰 중</span>
+            <span className="inline-flex h-11 shrink-0 items-center rounded-lg bg-level-normal-soft px-4 font-semibold text-level-normal">경과 관찰 중</span>
           ) : (
             <ActionDialog
               patientId={patient.id}
@@ -214,7 +214,7 @@ function PatientDetailContent({
       <div
         role="tablist"
         aria-label="환자 상세 보기"
-        className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto rounded-xl border bg-card p-1 shadow-card"
+        className="sticky top-0 z-10 -mx-4 flex overflow-x-auto border-b bg-card px-2 [scrollbar-width:none] sm:-mx-5 sm:px-3 [&::-webkit-scrollbar]:hidden"
         onKeyDown={(e) => {
           if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
           const next = (tabIndex + (e.key === "ArrowRight" ? 1 : -1) + TABS.length) % TABS.length;
@@ -233,12 +233,12 @@ function PatientDetailContent({
             tabIndex={tab === t.id ? 0 : -1}
             onClick={() => goTab(t.id)}
             className={cn(
-              "flex-1 shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition",
-              tab === t.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              "-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-3 text-[0.95rem] font-medium transition-colors",
+              tab === t.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             {t.label}
-            {t.id === "history" && historyCount > 0 && <span className="ml-1 tabular-nums opacity-80">{historyCount}</span>}
+            {t.id === "history" && historyCount > 0 && <span className="ml-1 tabular-nums text-muted-foreground">{historyCount}</span>}
           </button>
         ))}
       </div>
@@ -249,7 +249,7 @@ function PatientDetailContent({
         role="tabpanel"
         aria-labelledby={`tab-${tab}`}
         data-dir={slideDir}
-        className="tab-slide @container space-y-6"
+        className="tab-slide @container space-y-6 [&>section:first-child]:border-t-0 [&>section:first-child]:pt-0"
       >
         {tab === "guide" && (
       <ResponseGuide
@@ -278,21 +278,20 @@ function PatientDetailContent({
 
         {tab === "overview" && (
           <>
-      <section className="rounded-2xl border border-teal bg-accent p-5 shadow-card">
-        <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-accent-foreground">
-          <Sparkles className="size-5" /> AI 경과 요약
-        </h2>
+      {/* 요약은 참고용이라 화려하게 꾸미지 않는다: 반짝이 아이콘·색 배경 없이 왼쪽 선과 출처 표시만 */}
+      <section className="border-l-2 border-primary pl-4">
+        <h2 className="mb-2 text-base font-bold">경과 요약</h2>
         {/* AI 요약 텍스트: 로딩 중 / 성공 / 실패(폴백) */}
         {aiSummaryQuery.isPending ? (
-          <p className="text-lg text-muted-foreground animate-pulse">AI 요약을 생성하는 중…</p>
+          <p className="text-lg text-muted-foreground" role="status">요약을 만드는 중…</p>
         ) : (
           <div className="flex flex-wrap items-start gap-2">
-            <p className="text-lg flex-1">
+            <p className="flex-1 text-[1.05rem] leading-relaxed">
             {aiSummaryQuery.isError
               ? fallbackSummary(risk)
               : (aiSummaryQuery.data ?? fallbackSummary(risk))}
             </p>
-            <span className="shrink-0 mt-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            <span className="mt-1 shrink-0 rounded-md border px-2 py-0.5 text-xs font-medium text-muted-foreground">
             {aiSummaryQuery.isError ? "규칙 기반 요약" : "AI가 생성한 요약"}
             </span>
           </div>
@@ -304,7 +303,7 @@ function PatientDetailContent({
             </p>
             <ul className="flex flex-wrap gap-1.5" aria-label="요약 근거 수치">
             {(aiSummaryQuery.isError ? summaryEvidence(risk).map((e) => e.chip) : aiInputChips(aiInput)).map((c) => (
-              <li key={c} className="rounded-full border bg-card px-2.5 py-0.5 text-xs font-medium tabular-nums">{c}</li>
+              <li key={c} className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium tabular-nums">{c}</li>
             ))}
             </ul>
           </div>
@@ -319,7 +318,7 @@ function PatientDetailContent({
       </section>
             <div className="grid gap-6 @xl:grid-cols-2">
               <Card title="핵심 지표">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-5">
           <Stat label="연속 미접속" value={`${risk.metrics.currentGap}일`} hint={risk.metrics.lastPlayDate ? `마지막 접속 ${risk.metrics.lastPlayDate.slice(5)}` : "기록 없음"} />
           <Stat label="진행 회차" value={`${risk.metrics.sessionsDone}/${risk.metrics.sessionsExpected}회`} hint="처방 기준 대비" />
           <Stat
@@ -344,7 +343,7 @@ function PatientDetailContent({
               <Card title="위험 이유">
           <ul className="space-y-2">
             {risk.reasons.map((r) => (
-              <li key={r} className="flex gap-2 text-base"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />{r}</li>
+              <li key={r} className="flex gap-2 text-base"><span className="mt-2.5 h-px w-2 shrink-0 bg-muted-foreground" />{r}</li>
             ))}
           </ul>
           <p className="mt-4 text-sm text-muted-foreground">경과 {risk.metrics.elapsedDays}일차 기준 · 규칙 기반 초기 가정치</p>
@@ -360,23 +359,19 @@ function PatientDetailContent({
           <div className="h-56 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={history} margin={{ left: -20, right: 8, top: 8 }}>
-                <defs>
-                  <linearGradient id="riskFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
                 <CartesianGrid stroke="var(--border)" vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} interval="preserveStartEnd" minTickGap={20} />
                 <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
-                <ReferenceLine y={RISK_CONFIG.bands["주의"][0]} stroke="var(--level-caution)" strokeDasharray="4 4" />
-                <ReferenceLine y={RISK_CONFIG.bands["이탈 위험"][0]} stroke="var(--level-risk)" strokeDasharray="4 4" />
-                <ReferenceLine y={RISK_CONFIG.bands["치료이탈"][0]} stroke="var(--level-dropout)" strokeDasharray="4 4" />
+                {/* 기준선에 단계 이름을 붙인다 (선만 있으면 무슨 선인지 모름) */}
+                <ReferenceLine y={RISK_CONFIG.bands["주의"][0]} stroke="var(--level-caution)" strokeDasharray="4 4" label={{ value: "주의", position: "insideBottomLeft", fill: "var(--muted-foreground)", fontSize: 12 }} />
+                <ReferenceLine y={RISK_CONFIG.bands["이탈 위험"][0]} stroke="var(--level-risk)" strokeDasharray="4 4" label={{ value: "이탈 위험", position: "insideBottomLeft", fill: "var(--muted-foreground)", fontSize: 12 }} />
+                <ReferenceLine y={RISK_CONFIG.bands["치료이탈"][0]} stroke="var(--level-dropout)" strokeDasharray="4 4" label={{ value: "치료이탈", position: "insideBottomLeft", fill: "var(--muted-foreground)", fontSize: 12 }} />
                 {actionDates.map((d) => (
                   <ReferenceLine key={d} x={d} stroke="var(--teal)" strokeWidth={2} label={{ value: "조치", position: "insideTopRight", fill: "var(--teal)", fontSize: 12 }} />
                 ))}
                 <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "var(--muted-foreground)" }} formatter={(v: number, _n, item) => [`${v}점 (${item.payload.level})`, "위험 점수"]} />
-                <Area type="monotone" dataKey="score" stroke="var(--primary)" strokeWidth={2.5} fill="url(#riskFill)" />
+                {/* 날짜별 점수라 직선으로 잇는다 (곡선은 날짜 사이에 없는 오르내림을 그림) */}
+                <Area type="linear" dataKey="score" stroke="var(--primary)" strokeWidth={2} fill="var(--primary)" fillOpacity={0.07} dot={false} activeDot={{ r: 4 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -393,7 +388,7 @@ function PatientDetailContent({
                   <YAxis domain={[0, 7]} allowDecimals={false} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
                   <ReferenceLine y={patient.weekly_target_days} stroke="var(--teal)" strokeDasharray="4 4" />
                   <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "var(--muted-foreground)" }} formatter={(v: number) => [`${v}일`, "접속 일수"]} />
-                  <Bar dataKey="days" fill="var(--primary)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="days" fill="var(--primary)" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -408,7 +403,7 @@ function PatientDetailContent({
                   <YAxis domain={[0, 40]} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
                   <ReferenceLine y={patient.session_target_minutes} stroke="var(--teal)" strokeDasharray="4 4" />
                   <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "var(--muted-foreground)" }} formatter={(v: number) => [`${v}분`, "평균 세션"]} />
-                  <Bar dataKey="avgMinutes" fill="var(--teal)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="avgMinutes" fill="var(--teal)" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -526,7 +521,7 @@ export function FollowUpList({ patientId, items }: { patientId: string; items: A
   return (
     <ul className="mb-4 space-y-2" aria-label="다음 연락 예정">
       {items.map((f) => (
-        <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-accent px-4 py-2.5">
+        <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-2.5">
           <span>
             <span className="font-semibold">다음 연락 예정 {Number(f.due_date.slice(5, 7))}월 {Number(f.due_date.slice(8))}일</span>
             {f.due_date < today && <span className="ml-2 rounded-full bg-level-risk-soft px-1.5 py-0.5 text-xs font-semibold text-level-risk">지남</span>}
@@ -542,8 +537,8 @@ export function FollowUpList({ patientId, items }: { patientId: string; items: A
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string | undefined }) {
   return (
-    <div className="rounded-xl bg-muted p-3">
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+    <div className="border-l pl-3">
+      <div className="text-sm text-muted-foreground">{label}</div>
       <div className="mt-1 text-xl font-bold tabular-nums">{value}</div>
       {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
     </div>

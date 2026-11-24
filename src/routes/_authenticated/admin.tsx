@@ -119,7 +119,7 @@ function AdminContent({ myId }: { myId: string }) {
         </p>
       </div>
 
-      <div role="tablist" aria-label="담당 관리 보기" className="flex gap-1 rounded-xl border bg-card p-1 shadow-card sm:w-fit">
+      <div role="tablist" aria-label="담당 관리 보기" className="flex gap-1 rounded-xl border bg-card p-1 sm:w-fit">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -142,7 +142,7 @@ function AdminContent({ myId }: { myId: string }) {
         ))}
       </div>
 
-      <section className="rounded-2xl border bg-card p-5 shadow-card" role="tabpanel" aria-label={tab === "patients" ? "환자별 담당" : "의료진별 담당"}>
+      <section className="rounded-xl border bg-card p-5" role="tabpanel" aria-label={tab === "patients" ? "환자별 담당" : "의료진별 담당"}>
         {tab === "patients" ? (
           <AdminByPatient
             rows={pRows}

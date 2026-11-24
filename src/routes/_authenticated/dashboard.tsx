@@ -136,7 +136,8 @@ function Dashboard() {
         </div>
 
         {/* 요약 숫자: 누르면 그 환자만 걸러 보기 */}
-        <div className={cn("grid gap-3", split ? "grid-cols-2" : "grid-cols-2 md:grid-cols-4")}>
+        {/* 카드 4개 대신 칸을 나눈 한 줄 (gap-px + 테두리색 바탕으로 칸막이) */}
+        <div className={cn("grid gap-px overflow-hidden rounded-xl border bg-border", split ? "grid-cols-2" : "grid-cols-2 md:grid-cols-4")}>
           {KPI.map((k) => {
             const n = sum[k.id];
             const on = kpi === k.id;
@@ -147,12 +148,13 @@ function Dashboard() {
                 onClick={() => setKpi(on ? null : k.id)}
                 aria-pressed={on}
                 className={cn(
-                  "rounded-2xl border bg-card px-4 py-3 text-left shadow-card transition hover:bg-muted",
-                  on && "ring-2 ring-primary",
+                  "relative bg-card px-4 py-3 text-left transition-colors hover:bg-muted",
+                  on && "bg-secondary hover:bg-secondary",
                 )}
               >
-                <span className={cn("block text-3xl font-bold tabular-nums", k.danger && n > 0 && "text-level-risk")}>{n}</span>
-                <span className="text-sm text-muted-foreground">{k.label}</span>
+                <span className="block text-sm text-muted-foreground">{k.label}</span>
+                <span className={cn("mt-0.5 block text-[1.75rem] font-bold leading-tight tabular-nums", k.danger && n > 0 && "text-level-risk")}>{n}</span>
+                {on && <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />}
               </button>
             );
           })}
@@ -160,29 +162,31 @@ function Dashboard() {
 
         <TeamWorkload myId={myId} />
 
-        <section className="overflow-hidden rounded-2xl border bg-card shadow-card" aria-label="환자 목록">
-          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-            <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="목록 범위">
+        <section className="overflow-hidden rounded-xl border bg-card" aria-label="환자 목록">
+          <div className="flex flex-wrap items-end justify-between gap-2 px-4 pt-2">
+            <div className="flex flex-wrap items-end gap-x-1" role="tablist" aria-label="목록 범위">
               {(Object.keys(TAB_LABEL) as Tab[]).map((t) => (
-                <Button
+                <button
                   key={t}
-                  variant="outline"
-                  size="sm"
+                  type="button"
                   role="tab"
                   aria-selected={tab === t}
                   onClick={() => setTab(t)}
-                  className={cn("rounded-full", tab === t && "border-primary bg-primary text-primary-foreground hover:bg-primary/90")}
+                  className={cn(
+                    "-mb-px border-b-2 px-3 py-2.5 text-[0.95rem] font-medium transition-colors",
+                    tab === t ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                  )}
                 >
-                  {TAB_LABEL[t]} <span className="tabular-nums opacity-80">{byTab[t].length}</span>
-                </Button>
+                  {TAB_LABEL[t]} <span className={cn("ml-0.5 tabular-nums", tab === t ? "text-primary" : "opacity-70")}>{byTab[t].length}</span>
+                </button>
               ))}
               {kpi && (
-                <Button variant="ghost" size="sm" onClick={() => setKpi(null)} className="rounded-full text-muted-foreground">
+                <Button variant="ghost" size="sm" onClick={() => setKpi(null)} className="mb-1.5 text-muted-foreground">
                   {KPI.find((k) => k.id === kpi)?.label}만 보는 중 · 해제
                 </Button>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 pb-1.5">
               {canPick && !picking && selectable.size > 0 && (
                 <Button variant="outline" size="sm" onClick={() => setPicking(true)}>
                   <ArrowRightLeft /> 여러 명 넘기기
@@ -213,7 +217,7 @@ function Dashboard() {
             </div>
           )}
           {!split && (
-            <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-4 border-y bg-muted px-5 py-2 text-xs font-semibold text-muted-foreground md:grid">
+            <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-4 border-y bg-muted/60 py-2 pl-6 pr-5 text-[0.8rem] font-medium text-muted-foreground md:grid">
               <span>환자 · 이유</span><span>단계 · 점수</span><span>상태</span><span>연락 담당</span>
             </div>
           )}
@@ -241,7 +245,7 @@ function Dashboard() {
             </div>
           )}
         </section>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[0.8rem] text-muted-foreground">
           오늘 연락: 주의 이상이고 {threshold}점 이상, 새로 나빠졌거나 다시 연락할 날이 된 환자. 기준 점수는{" "}
           <Link to="/settings" search={{ section: "work" }} className="text-primary underline-offset-2 hover:underline">설정</Link>에서 바꿉니다.
         </p>

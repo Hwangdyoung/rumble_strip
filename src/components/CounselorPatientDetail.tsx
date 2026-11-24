@@ -61,11 +61,11 @@ export function CounselorPatientDetail({ id, panel = false }: { id: string; pane
         </Link>
       )}
 
-      <div className="space-y-3 rounded-2xl border bg-card p-5 shadow-card">
+      <div className="space-y-4">
         <div className={cn("flex flex-col gap-4", !panel && "sm:flex-row sm:items-start sm:justify-between")}>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold sm:text-3xl">{patient.name}</h1>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-[1.75rem]">{patient.name}</h1>
               <LevelBadge level={level} />
             </div>
             {reasons[0] && <p className="mt-1 font-medium">{reasons[0]}</p>}
@@ -78,7 +78,7 @@ export function CounselorPatientDetail({ id, panel = false }: { id: string; pane
             </p>
           </div>
           {level === "정상" ? (
-            <span className="inline-flex h-12 shrink-0 items-center rounded-xl bg-level-normal-soft px-4 font-semibold text-level-normal">경과 관찰 중</span>
+            <span className="inline-flex h-11 shrink-0 items-center rounded-lg bg-level-normal-soft px-4 font-semibold text-level-normal">경과 관찰 중</span>
           ) : (
             <ActionDialog
               patientId={patient.id}
@@ -98,7 +98,7 @@ export function CounselorPatientDetail({ id, panel = false }: { id: string; pane
         <p className="text-xs text-muted-foreground">연락 업무에 필요한 정보만 표시됩니다. 사용 시간·게임 결과·점수는 의료진이 확인합니다.</p>
       </div>
 
-      <div role="tablist" aria-label="환자 상세 보기" className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto rounded-xl border bg-card p-1 shadow-card">
+      <div role="tablist" aria-label="환자 상세 보기" className="sticky top-0 z-10 -mx-4 flex overflow-x-auto border-b bg-card px-2 [scrollbar-width:none] sm:-mx-5 sm:px-3 [&::-webkit-scrollbar]:hidden">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -109,12 +109,12 @@ export function CounselorPatientDetail({ id, panel = false }: { id: string; pane
             aria-controls="counselor-tabpanel"
             onClick={() => goTab(t.id)}
             className={cn(
-              "flex-1 shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition",
-              tab === t.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              "-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-3 text-[0.95rem] font-medium transition-colors",
+              tab === t.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             {t.label}
-            {t.id === "history" && historyCount > 0 && <span className="ml-1 tabular-nums opacity-80">{historyCount}</span>}
+            {t.id === "history" && historyCount > 0 && <span className="ml-1 tabular-nums text-muted-foreground">{historyCount}</span>}
           </button>
         ))}
       </div>
@@ -122,8 +122,8 @@ export function CounselorPatientDetail({ id, panel = false }: { id: string; pane
       <div key={tab} id="counselor-tabpanel" role="tabpanel" aria-labelledby={`ctab-${tab}`} className="tab-slide space-y-6">
         {tab === "guide" && <ResponseGuide guide={guide} sheet={sheet} normal={level === "정상"} onRecord={openActionWith} />}
         {tab === "calendar" && (
-          <section className="rounded-2xl border bg-card p-5 shadow-card">
-            <h2 className="mb-4 text-lg font-bold">접속 캘린더</h2>
+          <section>
+            <h2 className="mb-4 text-base font-bold">접속 캘린더</h2>
             <AttendanceCalendar
               startDate={patient.prescription_start_date}
               weeks={patient.prescription_weeks}
@@ -133,8 +133,8 @@ export function CounselorPatientDetail({ id, panel = false }: { id: string; pane
           </section>
         )}
         {tab === "history" && (
-          <section className="rounded-2xl border bg-card p-5 shadow-card">
-            <h2 className="mb-4 text-lg font-bold">연락 이력</h2>
+          <section>
+            <h2 className="mb-4 text-base font-bold">연락 이력</h2>
             <FollowUpList patientId={patient.id} items={followUps} />
             <ContactHistory patientId={patient.id} alerts={alerts} actions={actions} logs={[]} limited />
           </section>

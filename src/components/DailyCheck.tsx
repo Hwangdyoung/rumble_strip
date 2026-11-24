@@ -58,7 +58,7 @@ export function DailyCheckStatus({ inline = false }: { inline?: boolean } = {}) 
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card px-4 py-3 text-sm shadow-card" role="status">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card px-4 py-3 text-sm" role="status">
       <div>
         <span className="font-semibold">매일 점검</span>{" "}
         <span className="text-muted-foreground">{text}</span>

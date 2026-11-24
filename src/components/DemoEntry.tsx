@@ -50,7 +50,7 @@ export function DemoEntry() {
   return (
     <>
       <div className="fixed right-0 top-0 z-20 p-4 sm:p-6">
-        <Button type="button" variant="outline" onClick={() => { setError(null); setOpen(true); }} className="h-10 rounded-full bg-card shadow-card">
+        <Button type="button" variant="outline" onClick={() => { setError(null); setOpen(true); }} className="h-10 rounded-lg bg-card">
           <Eye className="size-4" aria-hidden /> <span className="sm:hidden">둘러보기</span><span className="hidden sm:inline">로그인 없이 둘러보기</span>
         </Button>
       </div>

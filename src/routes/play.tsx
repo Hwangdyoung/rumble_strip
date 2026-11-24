@@ -149,7 +149,7 @@ function PlayPage() {
   else body = <Game key={session.loginId} session={session} progress={progress.data} onSaved={() => progress.refetch()} />;
 
   return (
-    <div className="min-h-screen bg-secondary">
+    <div className="min-h-screen bg-muted/60">
       <header className="border-b bg-card">
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between gap-2 px-4 sm:px-6">
           <Logo />
@@ -208,16 +208,18 @@ function GameStart({ onEnter }: { onEnter: (s: Session) => void }) {
   const [mode, setMode] = useState<"new" | "back">("new");
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4">
-        <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-[#0f1630]">
-          <GameSymbol id="rocket" className="size-10" />
-        </span>
+      {/* 게임 첫 인상은 게임 안 밤하늘 색으로 (의료진 화면과 구분되게) */}
+      <div className="relative flex items-center gap-4 overflow-hidden rounded-2xl bg-[#0f1630] px-5 py-6 text-white sm:px-7">
+        <span aria-hidden className="absolute right-8 top-4 size-1 rounded-full bg-white/70" />
+        <span aria-hidden className="absolute right-24 top-10 size-0.5 rounded-full bg-white/60" />
+        <span aria-hidden className="absolute bottom-5 right-14 size-1.5 rounded-full bg-[#FFD84D]/80" />
+        <GameSymbol id="rocket" className="size-14 shrink-0" />
         <div>
           <h1 className="text-2xl font-bold sm:text-3xl">스타러커스 체험 게임</h1>
-          <p className="mt-1 text-muted-foreground">달리면서 기억 그림을 맞히고, 모은 코인으로 마을을 꾸며요.</p>
+          <p className="mt-1 text-white/75">달리면서 기억 그림을 맞히고, 모은 코인으로 마을을 꾸며요.</p>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-1 rounded-xl border bg-card p-1 shadow-card sm:w-fit" role="tablist" aria-label="시작 방법">
+      <div className="grid grid-cols-2 gap-1 rounded-xl border bg-card p-1 sm:w-fit" role="tablist" aria-label="시작 방법">
         {(["new", "back"] as const).map((m) => (
           <button
             key={m}
@@ -268,7 +270,7 @@ function NewPatientForm({ onEnter }: { onEnter: (s: Session) => void }) {
     m.mutate(r.value);
   }
   return (
-    <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border bg-card p-5 shadow-card sm:p-6">
+    <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border bg-card p-5 sm:p-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="g-nick" className="text-base">별명</Label>
@@ -317,7 +319,7 @@ function SignInForm({ onEnter }: { onEnter: (s: Session) => void }) {
     m.mutate(r.value);
   }
   return (
-    <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border bg-card p-5 shadow-card sm:max-w-md sm:p-6">
+    <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border bg-card p-5 sm:max-w-md sm:p-6">
       <div className="space-y-2">
         <Label htmlFor="b-id" className="text-base">아이디</Label>
         <Input id="b-id" value={loginId} onChange={(e) => setLoginId(e.target.value)} autoCapitalize="none" autoComplete="username" spellCheck={false} className="h-12 text-base" />
@@ -588,7 +590,7 @@ function Game({ session, progress, onSaved }: { session: Session; progress: Game
           <p className="mt-1 text-muted-foreground">달리면서 기억 그림을 맞히고, 모은 코인으로 마을을 꾸며요.</p>
         </div>
 
-        <section className="grid grid-cols-3 gap-2 rounded-2xl border bg-card p-4 text-center shadow-card">
+        <section className="grid grid-cols-3 gap-2 rounded-2xl border bg-card p-4 text-center">
           <Stat label="처방" value={`${status.progress.dayNumber}일차`} sub={`${status.progress.totalDays}일 중`} />
           <Stat label={`${status.progress.weekNumber}주차`} value={`${status.progress.playedThisWeek} / ${status.progress.weeklyTarget}일`} sub="이번 주 플레이" />
           <Stat label="오늘" value={`${status.todayMinutes} / ${status.target}분`} sub={status.todayMinutes >= status.target ? "오늘 목표를 채웠어요" : "오늘도 해 볼까요?"} />
@@ -596,7 +598,7 @@ function Game({ session, progress, onSaved }: { session: Session; progress: Game
 
         <Village state={village} onBuild={onBuild} />
 
-        <section className="rounded-2xl border bg-card p-5 shadow-card">
+        <section className="rounded-2xl border bg-card p-5">
           <h2 className="font-semibold">달리기 방법 <span className="text-sm font-normal text-muted-foreground">· 한 번에 {GAME_CONFIG.trialsPerBlock}문항(약 1분)</span></h2>
           <ol className="mt-3 grid gap-3 sm:grid-cols-3">
             <HowTo step="1" text="◀ ▶ 버튼이나 방향키로 움직여 빨간 가시를 피하고 코인을 주워요." />
@@ -707,7 +709,7 @@ function Done({
   const { row, summary, drive, earned } = result;
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card p-5 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card p-5">
         <div>
           <p className="text-2xl font-bold">도착했어요!</p>
           <p className="mt-1 text-muted-foreground">마을에서 쓸 코인을 얻었어요.</p>
@@ -717,14 +719,14 @@ function Done({
         </span>
       </div>
 
-      <section className="grid grid-cols-2 gap-2 rounded-2xl border bg-card p-4 text-center shadow-card sm:grid-cols-4">
+      <section className="grid grid-cols-2 gap-2 rounded-2xl border bg-card p-4 text-center sm:grid-cols-4">
         <Stat label="플레이" value={row ? `${row.play_minutes}분` : "-"} sub="멈춘 시간 빼고" />
         <Stat label="기억 그림" value={`${summary.hits}개`} sub={`${summary.scoredTrials}문항 중 맞힘`} />
         <Stat label="주운 코인" value={`${drive.roadCoins}개`} sub={`부딪힘 ${drive.crashes}번`} />
         <Stat label="반응 속도" value={row?.reaction_ms ? `${(row.reaction_ms / 1000).toFixed(2)}초` : "-"} sub="맞힌 그림 평균" />
       </section>
 
-      <div role="status" className="rounded-xl border bg-card px-4 py-3 text-sm shadow-card">
+      <div role="status" className="rounded-xl border bg-card px-4 py-3 text-sm">
         {save === "saving" && <span className="text-muted-foreground">기록을 저장하는 중…</span>}
         {save === "saved" && <span className="font-semibold text-level-normal">오늘 기록을 저장했어요.</span>}
         {save === "none" && <span className="text-muted-foreground">기억 그림 문항을 하나도 풀지 않아 저장할 기록이 없어요.</span>}

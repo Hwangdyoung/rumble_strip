@@ -115,7 +115,7 @@ function Simulator() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold sm:text-3xl">시뮬레이터 · 위험 점수 미리보기</h1>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-[1.75rem]">시뮬레이터 · 위험 점수 미리보기</h1>
         <p className="mt-1 text-muted-foreground">앞으로 이렇게 되면 위험 점수와 단계가 어떻게 바뀌는지 미리 봅니다.</p>
         <p className="mt-2 flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
           <Info className="size-4 shrink-0" /> 가정일 뿐 저장되지 않습니다. 대시보드, 환자 기록, 알림은 바뀌지 않습니다.
@@ -123,7 +123,7 @@ function Simulator() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="space-y-5 rounded-2xl border bg-card p-5 shadow-card">
+        <section className="space-y-5 rounded-xl border bg-card p-5">
           {patients.length === 0 && (
             <p className="rounded-lg bg-muted px-3 py-2 text-sm">담당 환자가 없어 미리 볼 환자가 없습니다. 관리자에게 배정을 요청하세요.</p>
           )}
@@ -147,7 +147,7 @@ function Simulator() {
             </div>
           </div>
 
-          <div className="rounded-xl border p-4">
+          <div className="rounded-lg border p-4">
             <p className="font-semibold">하루 플레이 추가</p>
             <div className="mt-3 grid grid-cols-3 gap-3">
               <div className="space-y-1">
@@ -168,7 +168,7 @@ function Simulator() {
             </Button>
           </div>
 
-          <div className="rounded-xl border border-dashed p-4">
+          <div className="rounded-lg border p-4">
             <p className="font-semibold">미접속 추가</p>
             <div className="mt-3 flex gap-2">
               <Input type="number" min={1} max={28} value={gapDays} onChange={(e) => setGapDays(Number(e.target.value))} className="h-11 w-24 text-base" aria-label="미접속 일수" />
@@ -202,7 +202,7 @@ function Simulator() {
           </div>
         </section>
 
-        <section className="rounded-2xl border bg-card p-5 shadow-card">
+        <section className="rounded-xl border bg-card p-5">
           <h2 className="text-lg font-bold">변화 미리보기</h2>
           {!current ? (
             <p className="mt-4 text-muted-foreground">{detail.isError ? "환자 기록을 불러오지 못했습니다." : "환자 기록을 불러오는 중…"}</p>

@@ -19,13 +19,14 @@
  */
 
 @theme inline {
+  /* 모서리: 큰 면도 8~10px까지만. 둥근 알약 모양(rounded-full)은 상태 표시에만 쓴다 (2026-11-24 디자인 정리) */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-xl: var(--radius);
+  --radius-2xl: calc(var(--radius) + 2px);
+  --radius-3xl: calc(var(--radius) + 4px);
+  --radius-4xl: calc(var(--radius) + 6px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -62,6 +63,9 @@
   --color-level-dropout: var(--level-dropout);
   --color-level-dropout-soft: var(--level-dropout-soft);
   --font-sans: "Pretendard Variable", Pretendard, system-ui, sans-serif;
+  /* 가장 작은 글자를 12px → 13px로 (이름표·표 머리·안내 문구가 너무 작았음) */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.15rem;
   --shadow-card: var(--shadow-card);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -74,7 +78,7 @@
 }
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.5rem;
   --background: oklch(0.99 0.004 220);
   --foreground: oklch(0.24 0.03 245);
   --card: oklch(1 0 0);
@@ -102,15 +106,16 @@
   --level-caution-ink: oklch(0.45 0.1 70);
   --level-risk: oklch(0.62 0.19 40);
   --level-risk-soft: oklch(0.95 0.05 40);
-  --level-dropout: oklch(0.55 0.015 250);
-  --level-dropout-soft: oklch(0.94 0.006 250);
-  --gradient-brand: linear-gradient(135deg, var(--primary), var(--teal));
-  --shadow-card: 0 1px 2px oklch(0.3 0.03 240 / 6%), 0 4px 16px -8px oklch(0.3 0.05 240 / 12%);
+  /* 치료이탈은 가장 급한 단계라 가장 진한 적갈색 (예전 회색은 덜 급해 보였음) */
+  --level-dropout: oklch(0.45 0.15 25);
+  --level-dropout-soft: oklch(0.94 0.03 25);
+  /* 면은 테두리로 나누고 그림자는 거의 쓰지 않는다. 떠 있는 것(창·메뉴)만 shadow-lg */
+  --shadow-card: 0 1px 2px oklch(0.3 0.03 240 / 4%);
   --chart-1: oklch(0.5 0.12 235);
   --chart-2: oklch(0.62 0.11 190);
   --chart-3: oklch(0.72 0.15 85);
   --chart-4: oklch(0.62 0.19 40);
-  --chart-5: oklch(0.55 0.015 250);
+  --chart-5: oklch(0.45 0.15 25);
   --sidebar: oklch(0.98 0.005 230);
   --sidebar-foreground: oklch(0.24 0.03 245);
   --sidebar-primary: oklch(0.5 0.12 235);
@@ -150,14 +155,14 @@
   --level-caution-ink: oklch(0.86 0.12 85);
   --level-risk: oklch(0.73 0.17 40);
   --level-risk-soft: oklch(0.32 0.07 40);
-  --level-dropout: oklch(0.72 0.02 250);
-  --level-dropout-soft: oklch(0.3 0.012 250);
-  --shadow-card: 0 1px 2px oklch(0 0 0 / 30%), 0 4px 16px -8px oklch(0 0 0 / 45%);
+  --level-dropout: oklch(0.74 0.13 22);
+  --level-dropout-soft: oklch(0.31 0.07 22);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 25%);
   --chart-1: oklch(0.7 0.12 230);
   --chart-2: oklch(0.72 0.11 190);
   --chart-3: oklch(0.8 0.14 85);
   --chart-4: oklch(0.73 0.17 40);
-  --chart-5: oklch(0.72 0.02 250);
+  --chart-5: oklch(0.74 0.13 22);
   --sidebar: oklch(0.2 0.016 240);
   --sidebar-foreground: oklch(0.93 0.01 230);
   --sidebar-primary: oklch(0.7 0.12 230);
@@ -179,12 +184,18 @@
     font-family: var(--font-sans);
     font-size: calc(17px * var(--text-scale, 1));
     letter-spacing: -0.01em;
+    font-feature-settings: "tnum";
     -webkit-font-smoothing: antialiased;
   }
 }
 
 @utility bg-brand {
-  background-image: var(--gradient-brand);
+  background-color: var(--primary);
+}
+
+/* 방지턱 띠: 도로의 요철 띠처럼 끊어진 세로 막대. 색은 글자색(currentColor)으로 정한다 (LevelBadge levelStyles.strip) */
+.rumble-strip {
+  background-image: repeating-linear-gradient(to bottom, currentColor 0 7px, transparent 7px 10px);
 }
 
 .dashboard-split {
