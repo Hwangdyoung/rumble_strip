@@ -163,8 +163,8 @@ function Dashboard() {
         <TeamWorkload myId={myId} />
 
         <section className="overflow-hidden rounded-xl border bg-card" aria-label="환자 목록">
-          <div className="flex flex-wrap items-end justify-between gap-2 px-4 pt-2">
-            <div className="flex flex-wrap items-end gap-x-1" role="tablist" aria-label="목록 범위">
+          <div className="flex items-end justify-between gap-2 px-2 pt-2 sm:px-4">
+            <div className="flex min-w-0 flex-wrap items-end gap-x-1" role="tablist" aria-label="목록 범위">
               {(Object.keys(TAB_LABEL) as Tab[]).map((t) => (
                 <button
                   key={t}
@@ -173,7 +173,7 @@ function Dashboard() {
                   aria-selected={tab === t}
                   onClick={() => setTab(t)}
                   className={cn(
-                    "-mb-px border-b-2 px-3 py-2.5 text-[0.95rem] font-medium transition-colors",
+                    "-mb-px whitespace-nowrap border-b-2 px-2.5 py-2.5 text-[0.95rem] font-medium transition-colors sm:px-3",
                     tab === t ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
                   )}
                 >
@@ -186,13 +186,13 @@ function Dashboard() {
                 </Button>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-1.5 pb-1.5">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 pb-1.5">
               {canPick && !picking && selectable.size > 0 && (
                 <Button variant="outline" size="sm" onClick={() => setPicking(true)}>
                   <ArrowRightLeft /> 여러 명 넘기기
                 </Button>
               )}
-              <Button variant="ghost" size="sm" onClick={printList} aria-label="목록 인쇄"><Printer /> 인쇄</Button>
+              <Button variant="ghost" size="sm" onClick={printList} aria-label="목록 인쇄"><Printer /> <span className="hidden sm:inline">인쇄</span></Button>
             </div>
           </div>
           {picking && (

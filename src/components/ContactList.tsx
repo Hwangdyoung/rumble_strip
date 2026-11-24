@@ -1,6 +1,7 @@
 import { LevelBadge, levelStyles } from "@/components/LevelBadge";
 import type { ContactRow, ContactStatus } from "@/lib/contact-list";
 import { cn } from "@/lib/utils";
+import { Clock } from "lucide-react";
 
 /** 상태는 색 배지 대신 글자 굵기·색으로만 구분한다 (한 줄에 색 이름표가 몰리지 않게). 손이 가야 하는 상태만 진하게. */
 const STATUS_STYLE: Record<ContactStatus, string> = {
@@ -80,8 +81,9 @@ export function ContactList({
                 <span className="font-semibold">{r.name}</span>
                 {r.newWorseAt && <span className="rounded-full border border-level-risk/40 px-2 py-px text-[0.8rem] font-semibold text-level-risk">새로 나빠짐</span>}
                 {r.followDue && (
-                  <span className="text-[0.8rem] font-medium text-muted-foreground">
-                    · {r.followDue.overdueDays > 0 ? `다시 연락 ${r.followDue.overdueDays}일 지남` : "오늘 다시 연락"}
+                  <span className="inline-flex items-center gap-1 text-[0.8rem] font-medium text-muted-foreground">
+                    <Clock className="size-3.5" aria-hidden />
+                    {r.followDue.overdueDays > 0 ? `다시 연락 ${r.followDue.overdueDays}일 지남` : "오늘 다시 연락"}
                   </span>
                 )}
               </span>

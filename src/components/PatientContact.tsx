@@ -41,7 +41,7 @@ export function PatientContact({ patientId }: { patientId: string }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <span className="text-muted-foreground">연락 담당</span>
-      <span className={cn("font-semibold", !contact && "text-level-risk")}>{contact ? `${contact.name} (${contact.role})` : "미지정"}</span>
+      <span className={cn("font-semibold", !contact && "text-level-caution-ink")}>{contact ? `${contact.name} (${contact.role})` : "미지정"}</span>
       {me?.staff && contact?.id !== myId && (
         <Button type="button" variant="outline" size="sm" disabled={take.isPending} onClick={() => take.mutate()}>
           <Hand /> 내가 맡기
